@@ -1,0 +1,16 @@
+# 签名密钥（切勿提交！）
+release.keystore
+*.jks
+*.keystore
+
+# 依赖与构建产物
+node_modules/
+dist/
+android/.gradle/
+android/build/
+android/app/build/
+android/captures/
+
+# 系统
+.DS_Store
+*.log

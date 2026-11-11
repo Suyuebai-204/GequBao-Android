@@ -1,0 +1,934 @@
+/* ============================================================
+ * 歌曲宝 安卓端全局样式
+ * 移植自 Windows 端 main.css，并在尾部追加移动端/ TV 适配。
+ * 设计令牌（颜色、圆角、阴影、过渡）保持一致，便于桌面与移动观感统一。
+ * ============================================================ */
+
+:root {
+  --bg: #0f0f12;
+  --bg-elev: #18181c;
+  --surface: #1c1d22;
+  --surface-2: #232429;
+  --surface-hover: #2a2b31;
+  --surface-active: #303137;
+
+  --text: #ececf1;
+  --text-2: #c7c7d1;
+  --text-3: #8b8b97;
+  --muted: var(--text-3);
+
+  --accent: #2dd4bf;
+  --accent-hover: #34e0cb;
+  --on-accent: #06231f;
+  --accent-soft: rgba(45, 212, 191, 0.14);
+  --danger: #e5484d;
+
+  --border: #2c2d34;
+  --border-strong: #3a3b43;
+
+  --slider-track: #3a3b43;
+  --slider-track-hover: #4a4b54;
+
+  --code-bg: #16171b;
+  --code-text: #9fd2c8;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 8px 26px rgba(0, 0, 0, 0.45);
+  --shadow-3: 0 22px 60px rgba(0, 0, 0, 0.55);
+
+  --radius: 14px;
+  --radius-lg: 12px;
+  --radius-md: 10px;
+  --radius-sm: 8px;
+
+  --control-h: 36px;
+  --control-h-lg: 42px;
+
+  --t: 0.16s ease;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  --titlebar-h: 0px;
+  --nav-h: 58px;
+  /* 迷你播放条距屏幕底部的偏移：默认含底部导航高度；无底部导航（子页面/宽屏侧栏）时贴底 */
+  --mini-bottom: calc(var(--nav-h) + 14px);
+
+  /* 播放浮层背景参数（TV/手机都可单独覆盖） */
+  --sheet-backdrop-filter: blur(0px);
+  --sheet-backdrop-opacity: 0.35;
+  --sheet-scrim-opacity: 0.92;
+  --sheet-vignette: rgba(10, 10, 12, 0.9);
+}
+
+/* 无底部导航时（子页面 / 宽屏或 TV 的左侧栏），迷你播放条贴底 */
+html.is-subpage,
+html.is-wide,
+html.is-tv {
+  --mini-bottom: 14px;
+}
+
+html.theme-light {
+  --bg: #f6f7f9;
+  --bg-elev: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --surface-hover: #e9ebee;
+  --surface-active: #e1e4e9;
+
+  --text: #1b1c20;
+  --text-2: #40434c;
+  --text-3: #838896;
+
+  --accent: #0ea5a0;
+  --accent-hover: #0c938f;
+  --on-accent: #ffffff;
+
+  --border: #e3e6ec;
+  --border-strong: #d2d6de;
+
+  --slider-track: #d8dbe2;
+  --slider-track-hover: #c7cbd4;
+
+  --sheet-scrim-opacity: 0.88;
+  --sheet-vignette: rgba(246, 247, 249, 0.9);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei',
+    'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  /* 禁止整页回弹滚动，所有滚动由内容区内部处理，更像原生 App */
+  overflow: hidden;
+}
+
+/* ---------- 去除网页特性，贴近原生 App ---------- */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  /* 关闭长按弹出菜单与文本选中（输入框/文本域除外） */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+input,
+textarea,
+[contenteditable='true'] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+img {
+  -webkit-user-drag: none;
+  user-drag: none;
+  -webkit-touch-callout: none;
+}
+
+a,
+button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* 隐藏滚动条，贴近原生（仅隐藏视觉条，滚动能力保留） */
+.content,
+.mobile-nav {
+  scrollbar-width: none;
+}
+
+.content::-webkit-scrollbar,
+.mobile-nav::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+html,
+body {
+  overscroll-behavior: none;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+h1 {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.muted {
+  color: var(--text-3);
+  margin: 0;
+}
+
+.small {
+  font-size: 12px;
+}
+
+.num {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- 布局工具 ---------- */
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.row.between {
+  justify-content: space-between;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.view {
+  padding: 0;
+}
+
+.view-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 5px;
+}
+
+/* ---------- 按钮 ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--control-h);
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--t), color var(--t), border-color var(--t), opacity var(--t);
+}
+
+.btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.btn:active {
+  background: var(--surface-active);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--on-accent);
+}
+
+.btn-subtle {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-3);
+}
+
+.btn-subtle:hover {
+  background: var(--surface-active);
+  color: var(--text);
+}
+
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background var(--t), color var(--t);
+}
+
+.icon-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+/* ---------- 表单控件 ---------- */
+.control {
+  height: var(--control-h);
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--t), background var(--t);
+}
+
+.control:hover {
+  border-color: var(--border-strong);
+}
+
+.control:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+select.control {
+  appearance: none;
+  padding-right: 28px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-3) 50%), linear-gradient(135deg, var(--text-3) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 16px, calc(100% - 11px) 16px;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.filter {
+  height: var(--control-h);
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+
+.filter:focus {
+  border-color: var(--accent);
+}
+
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--accent) var(--fill, 0%), var(--slider-track) var(--fill, 0%));
+  cursor: pointer;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+  background: var(--accent);
+}
+
+/* ---------- 卡片 / 文本块 ---------- */
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 16px;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+/* ---------- 表格（列表） ---------- */
+.table {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.table-head,
+.table-row {
+  display: grid;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+}
+
+.table-head {
+  font-size: 12px;
+  color: var(--text-3);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 1;
+}
+
+.table-row {
+  border-radius: var(--radius-sm);
+  transition: background var(--t);
+}
+
+.table-row:hover {
+  background: var(--surface-2);
+}
+
+/* 本应用为 Android 触屏，无鼠标 hover：hover 在真机上永不触发。
+   以下强制让“仅 hover 才显示”的控件在触屏上直接呈现 hover 终态，
+   避免控件在触屏上隐形（如播放键、删除键）。
+   装饰性 :hover 在触屏天然无效，无需保留。
+   注意：SongList 的 .idx 序号/播放图标由组件按播放状态自行渲染，
+   不在这里强制显示或隐藏，否则会把数字序号全部隐藏成空白。 */
+@media (hover: none) {
+  .row-index { display: none !important; }
+  .row-play { display: inline-block !important; opacity: 1 !important; }
+  .play-btn { opacity: 1 !important; display: inline-flex !important; }
+  .row-x { opacity: 1 !important; display: inline-flex !important; }
+}
+
+/* 按下高亮（:active）：触屏无 hover，用按下态提供“按下有高亮、松开/移开即取消”的反馈。
+   仅作用于交互元素；装饰性反馈统一改用 :active 而非 :hover。 */
+button:active,
+.btn:active,
+.btn-primary:active,
+.btn-subtle:active,
+.icon-btn:active,
+.control:active,
+.tab:active,
+a:active,
+.row-item:active,
+.song-row:active,
+.kw-row:active,
+.table-row:active,
+.guess-item:active,
+.panel-item:active,
+.hot-chip:active,
+.round-btn:active,
+.mini-btn:active,
+.mini-play:active,
+.pl-item:active,
+.play-btn:active,
+.ghost-btn:active,
+.pbtn:active,
+.clear:active,
+.refresh:active,
+.exit-btn:active,
+.stat:active {
+  background: var(--surface-active);
+}
+
+.song-row {
+  cursor: pointer;
+}
+
+/* ---------- 骨架屏 / 加载 ---------- */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-hover) 37%, var(--surface-2) 63%);
+  background-size: 400% 100%;
+  animation: skeleton 1.3s ease infinite;
+  border-radius: 6px;
+  height: 14px;
+}
+
+@keyframes skeleton {
+  0% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- 视图切换动画 ---------- */
+.view-enter-active,
+.view-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.view-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.view-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* ---------- 响应式布局 ----------
+ * 竖屏手机：底部导航栏（默认样式）
+ * 宽屏（平板 / 横屏手机，html.is-wide）：左侧紧凑图标栏
+ * 电视（html.is-tv）：左侧大字导航栏 + 大字号
+ */
+
+/* ---- 竖屏 / 窄屏 ---- */
+@media (max-width: 767px) {
+  h1 {
+    font-size: 19px;
+  }
+
+  .content {
+    padding: 14px 12px 96px;
+  }
+
+  /* 列表在小屏自适应填满宽度，禁止横向滚动（原生 App 体验） */
+  .table {
+    min-width: 0;
+  }
+
+  .table-head,
+  .table-row {
+    min-width: 0;
+    grid-template-columns: 22px 1fr 1fr 40px !important;
+    gap: 8px;
+  }
+
+  /* 小屏隐藏「时长」列 */
+  .table-head span:nth-child(4),
+  .table-row>span:nth-child(4) {
+    display: none;
+  }
+
+  /* 操作列在小屏显示为可见的播放图标（桌面端为 hover 才显示） */
+  .row-action .play-btn {
+    opacity: 1 !important;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    font-size: 0;
+    background: var(--surface-2);
+  }
+
+  .row-action .play-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .table-head {
+    top: 0;
+  }
+
+  /* 小屏隐藏版本号，把空间留给搜索框 */
+  .version {
+    display: none;
+  }
+
+  /* 播放时迷你条出现，内容区底部需为「导航 + 迷你条」留白 */
+  .app-root.has-mini .content {
+    padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 88px);
+  }
+
+  html.is-wide .app-root.has-mini .content {
+    padding-bottom: calc(92px + 74px);
+  }
+
+  html.is-tv .app-root.has-mini .content {
+    padding-bottom: calc(110px + 74px);
+  }
+}
+
+/* 内容宽度上限：平板 / 横屏 / TV 下居中，避免过长的阅读行 */
+.content-inner {
+  width: 100%;
+  max-width: 100%;
+}
+
+html.is-wide .content-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ---- 宽屏：左侧紧凑图标栏（参考酷我横屏布局） ---- */
+html.is-wide .content {
+  padding-bottom: 92px;
+  /* 无底部导航，仅为迷你播放条留白 */
+}
+
+html.is-wide .mobile-nav {
+  flex-direction: column;
+  width: 76px;
+  flex-shrink: 0;
+  height: 100%;
+  border-top: 0;
+  border-right: 1px solid var(--border);
+  padding: 14px 8px;
+  gap: 4px;
+}
+
+html.is-wide .mobile-nav .nav-btn {
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 0;
+  border-radius: var(--radius);
+}
+
+html.is-wide .mobile-nav .nav-btn.active {
+  background: var(--surface-active);
+}
+
+html.is-wide .mobile-nav {
+  overflow-y: auto;
+}
+
+/* 宽屏 / TV：切换为横向布局，导航栏位于内容区左侧 */
+html.is-wide .layout,
+html.is-tv .layout {
+  flex-direction: row;
+}
+
+/* 导航是固定定位（不占布局空间），内容区必须主动让出导航宽度，
+ * 否则页面左缘会被左侧导航遮住 */
+html.is-wide .layout>.main {
+  margin-left: 76px;
+}
+
+html.is-tv .layout>.main {
+  margin-left: 200px;
+}
+
+/* 纵向（竖屏）时导航沉到底部；横向（宽屏/TV）时导航回到左侧 */
+.layout>.mobile-nav {
+  order: 2;
+}
+
+.layout>.main {
+  order: 1;
+}
+
+html.is-wide .layout>.mobile-nav,
+html.is-tv .layout>.mobile-nav {
+  order: 0;
+}
+
+/* 矮横屏（手机横屏）：导航按钮更紧凑，避免纵向溢出 */
+@media (orientation: landscape) and (max-height: 480px) {
+  html.is-wide .mobile-nav {
+    padding: 8px 6px;
+    gap: 2px;
+  }
+
+  html.is-wide .mobile-nav .nav-btn {
+    padding: 6px 0;
+    gap: 2px;
+  }
+
+  html.is-wide .mobile-nav .nav-label {
+    font-size: 10px;
+  }
+}
+
+/* 宽屏下迷你播放条在内容区域内居中，不与左侧栏重叠；横屏无底部导航，贴底即可 */
+html.is-wide .mini {
+  left: calc(76px + (100% - 76px) / 2);
+  width: min(640px, calc(100% - 76px - 40px));
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+}
+
+/* ---- TV 大屏适配 ---- */
+html.is-tv body {
+  font-size: 18px;
+}
+
+html.is-tv .content {
+  padding: 28px 6vw 110px;
+}
+
+html.is-tv h1 {
+  font-size: 30px;
+}
+
+html.is-tv .table-row,
+html.is-tv .table-head {
+  padding: 12px 14px;
+  font-size: 18px;
+}
+
+/* TV 下不横向滚动，列宽更宽松 */
+html.is-tv .table-head,
+html.is-tv .table-row {
+  min-width: 0;
+}
+
+html.is-tv .card,
+html.is-tv .panel {
+  padding: 22px;
+  border-radius: 16px;
+}
+
+html.is-tv .btn {
+  height: 48px;
+  font-size: 16px;
+  padding: 0 22px;
+  border-radius: 12px;
+}
+
+html.is-tv .control,
+html.is-tv .filter {
+  height: 48px;
+  font-size: 16px;
+}
+
+/* TV 导航栏：左侧大字导航（覆盖 is-wide 的紧凑图标栏） */
+html.is-tv .mobile-nav {
+  flex-direction: column;
+  width: 200px;
+  flex-shrink: 0;
+  height: 100%;
+  border-top: 0;
+  border-right: 1px solid var(--border);
+  padding: 28px 14px;
+  gap: 10px;
+}
+
+html.is-tv .mobile-nav .nav-btn {
+  flex: 0 0 auto;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 16px;
+  height: 60px;
+  padding: 0 18px;
+  border-radius: var(--radius);
+  font-size: 18px;
+}
+
+html.is-tv .mobile-nav .nav-label {
+  font-size: 17px;
+}
+
+html.is-tv .mobile-nav .nav-btn.active {
+  background: var(--surface-active);
+}
+
+html.is-tv .mini {
+  left: calc(200px + (100% - 200px) / 2);
+  width: min(640px, calc(100% - 200px - 60px));
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+}
+
+/* ============================================================
+ * 横屏（手机 / 平板，非 TV）：整页内容「按比例」统一缩放
+ * 用 --s 比例因子乘以共享基元的尺寸；!important 覆盖组件作用域内的 px，
+ * 使所有页面（列表、搜索、发现、设置…）作为一个整体一起随视口放大/缩小。
+ * 仅作用于 .content 内部，不影响顶栏 / 左侧导航 / 播放浮层（它们各有布局）。
+ * TV 走 html.is-tv 的显式大屏缩放，不在此处理。
+ * ============================================================ */
+@media (orientation: landscape) {
+  html:not(.is-tv) {
+    --s: 1.05;
+  }
+}
+
+@media (orientation: landscape) and (min-width: 700px) {
+  html:not(.is-tv) {
+    --s: 1.12;
+  }
+}
+
+@media (orientation: landscape) and (min-width: 900px) {
+  html:not(.is-tv) {
+    --s: 1.2;
+  }
+}
+
+@media (orientation: landscape) and (min-width: 1100px) {
+  html:not(.is-tv) {
+    --s: 1.3;
+  }
+}
+
+@media (orientation: landscape) and (min-width: 1400px) {
+  html:not(.is-tv) {
+    --s: 1.4;
+  }
+}
+
+@media (orientation: landscape) {
+  html:not(.is-tv) {
+    font-size: calc(14px * var(--s, 1));
+  }
+
+  html:not(.is-tv) .content {
+    padding: calc(20px * var(--s, 1)) calc(28px * var(--s, 1)) calc(92px * var(--s, 1));
+  }
+
+  html:not(.is-tv) .content h1 {
+    font-size: calc(22px * var(--s, 1)) !important;
+  }
+
+  html:not(.is-tv) .content h2 {
+    font-size: calc(15px * var(--s, 1)) !important;
+  }
+
+  html:not(.is-tv) .content .muted,
+  html:not(.is-tv) .content .small {
+    font-size: calc(12px * var(--s, 1)) !important;
+  }
+
+  html:not(.is-tv) .content .view-head {
+    margin-bottom: calc(16px * var(--s, 1)) !important;
+    gap: calc(12px * var(--s, 1)) !important;
+  }
+
+  html:not(.is-tv) .content .card,
+  html:not(.is-tv) .content .panel {
+    padding: calc(16px * var(--s, 1)) !important;
+    border-radius: calc(14px * var(--s, 1)) !important;
+  }
+
+  html:not(.is-tv) .content .btn {
+    height: calc(36px * var(--s, 1)) !important;
+    font-size: calc(13px * var(--s, 1)) !important;
+    padding: 0 calc(14px * var(--s, 1)) !important;
+    gap: calc(6px * var(--s, 1)) !important;
+  }
+
+  html:not(.is-tv) .content .control,
+  html:not(.is-tv) .content .filter {
+    height: calc(36px * var(--s, 1)) !important;
+    font-size: calc(13px * var(--s, 1)) !important;
+    padding: 0 calc(10px * var(--s, 1)) !important;
+  }
+
+  html:not(.is-tv) .content .icon-btn {
+    width: calc(38px * var(--s, 1)) !important;
+    height: calc(38px * var(--s, 1)) !important;
+  }
+
+  html:not(.is-tv) .content .song-row {
+    padding: calc(7px * var(--s, 1)) calc(10px * var(--s, 1)) !important;
+    gap: calc(10px * var(--s, 1)) !important;
+  }
+
+  html:not(.is-tv) .content .table-row,
+  html:not(.is-tv) .content .table-head {
+    padding: calc(8px * var(--s, 1)) calc(10px * var(--s, 1)) !important;
+    gap: calc(12px * var(--s, 1)) !important;
+    font-size: calc(13px * var(--s, 1)) !important;
+  }
+
+  /* 跨视图通用文本类统一放大 */
+  html:not(.is-tv) .content .title {
+    font-size: calc(15px * var(--s, 1)) !important;
+  }
+
+  html:not(.is-tv) .content .artist {
+    font-size: calc(13px * var(--s, 1)) !important;
+  }
+
+  html:not(.is-tv) .content .meta {
+    font-size: calc(13px * var(--s, 1)) !important;
+  }
+
+  html:not(.is-tv) .content .name {
+    font-size: calc(14px * var(--s, 1)) !important;
+  }
+
+  html:not(.is-tv) .content .card-title {
+    font-size: calc(14px * var(--s, 1)) !important;
+  }
+
+  html:not(.is-tv) .content .desc,
+  html:not(.is-tv) .content .sub {
+    font-size: calc(12px * var(--s, 1)) !important;
+  }
+
+  /* 网格间距 */
+  html:not(.is-tv) .content .guess-grid,
+  html:not(.is-tv) .content .grid {
+    gap: calc(8px * var(--s, 1)) !important;
+  }
+}
+
+/* ---- TV 遥控器焦点态（配合 remoteFocus 指令的 .tv-focused） ---- */
+html.is-tv .tv-focused {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 20%, transparent);
+  transition: box-shadow 0.12s ease, transform 0.12s ease;
+}
+
+html.is-tv .tv-focused.table-row,
+html.is-tv .tv-focused.song-row {
+  transform: scale(1.01);
+  background: var(--surface-hover);
+}

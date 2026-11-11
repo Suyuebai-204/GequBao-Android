@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  桌面歌词悬浮窗（简约紧凑卡片）
+  层级：歌曲信息 → 左右交替阶梯歌词舞台 → 轻控制栏；整卡可拖动，关闭按钮收起。
+  舞台内三行（离场 / 当前 / 下一）统一以 translationY 定位：当前行 y=0、下一行 y=30dp。
+  切句时三行同时向上平移一行，当前行同步放大；动画首尾与稳态画面一致，无淡入淡出闪烁。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/fl_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_floating_lyric"
+    android:paddingStart="14dp"
+    android:paddingEnd="14dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="6dp">
+
+    <!-- 头部：强调点 + 歌名 · 歌手 / 关闭 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="20dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <View
+            android:layout_width="5dp"
+            android:layout_height="5dp"
+            android:background="@drawable/bg_fl_dot" />
+
+        <TextView
+            android:id="@+id/fl_meta"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="7dp"
+            android:layout_marginEnd="7dp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textColor="#99FFFFFF"
+            android:textSize="10.5sp"
+            android:text="歌曲宝" />
+
+        <ImageView
+            android:id="@+id/fl_close"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:padding="3dp"
+            android:src="@drawable/ic_fl_close"
+            android:tint="#80FFFFFF"
+            android:contentDescription="关闭桌面歌词" />
+    </LinearLayout>
+
+    <!-- 歌词舞台：clipChildren 开启，行滚出边界时自然被裁切 -->
+    <FrameLayout
+        android:id="@+id/fl_stage"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginTop="8dp"
+        android:clipChildren="true">
+
+        <!-- 离场行：切句时承载旧的当前句，向上滚出 -->
+        <TextView
+            android:id="@+id/fl_outgoing"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:gravity="start"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textColor="#FFFFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <!-- 当前行：大字、y=0 -->
+        <TextView
+            android:id="@+id/fl_current"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:gravity="start"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textColor="#FFFFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:text="纯音乐，请欣赏" />
+
+        <!-- 下一行：小字、y=30dp -->
+        <TextView
+            android:id="@+id/fl_upcoming"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:gravity="end"
+            android:translationY="30dp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textColor="#B3FFFFFF"
+            android:textSize="13sp"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <!-- 轻控制栏：仅图标，无底色 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="28dp"
+        android:layout_marginTop="2dp"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <ImageView
+            android:id="@+id/fl_prev"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_marginEnd="20dp"
+            android:padding="5dp"
+            android:src="@drawable/ic_fl_prev"
+            android:tint="#B3FFFFFF"
+            android:contentDescription="上一首" />
+
+        <ImageView
+            android:id="@+id/fl_play"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:padding="5dp"
+            android:src="@drawable/ic_fl_play"
+            android:tint="#2DD4BF"
+            android:contentDescription="播放或暂停" />
+
+        <ImageView
+            android:id="@+id/fl_skip_next"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_marginStart="20dp"
+            android:padding="5dp"
+            android:src="@drawable/ic_fl_skip_next"
+            android:tint="#B3FFFFFF"
+            android:contentDescription="下一首" />
+    </LinearLayout>
+</LinearLayout>

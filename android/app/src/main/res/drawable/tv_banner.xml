@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android TV 启动横幅（320x180 比例，由系统缩放显示）
+     建议后续替换为带「歌曲宝」字样的正式 PNG：android:banner="@drawable/tv_banner" -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="#1b1b28"
+                android:endColor="#0a0a10" />
+        </shape>
+    </item>
+    <item
+        android:gravity="center"
+        android:drawable="@mipmap/ic_launcher" />
+</layer-list>

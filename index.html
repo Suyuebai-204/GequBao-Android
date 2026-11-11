@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no"
+    />
+    <meta name="theme-color" content="#f6f7f9" />
+    <meta name="x5-fullscreen" content="true" />
+    <meta name="full-screen" content="yes" />
+    <title>歌曲宝</title>
+    <script>
+      // 首屏先应用主题，避免 CSS 默认深色在 JS 初始化前闪一下（规则与 composables/theme.js 一致）
+      (function () {
+        var t = 'light'
+        try {
+          if (localStorage.getItem('app:theme:custom') === '1') {
+            t = localStorage.getItem('app:theme') || t
+          }
+        } catch (e) { }
+        var dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.classList.toggle('theme-light', !dark)
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

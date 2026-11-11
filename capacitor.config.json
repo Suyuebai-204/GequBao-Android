@@ -1,0 +1,18 @@
+{
+  "appId": "com.yygzs.gqbs",
+  "appName": "歌曲宝",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": true,
+    "buildOptions": {
+      "keystorePath": "../release.keystore",
+      "keystorePassword": "Gequbao-Remake-app",
+      "keystoreAlias": "gequbao",
+      "keystoreAliasPassword": "Gequbao-Remake-app",
+      "signingType": "apksigner"
+    }
+  },
+  "plugins": {
+    "MusicControls": {}
+  }
+}
