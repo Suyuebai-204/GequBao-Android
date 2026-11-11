@@ -10,7 +10,7 @@ const emit = defineEmits(['navigate'])
 const APP_NAME = '歌曲宝'
 const DEVELOPER = '苏月白'
 const QQ = 3608714354
-const REPO_URL = 'https://gitee.com/suyuebai/gequ-bao-android'
+const REPO_URL = 'https://github.com/Suyuebai-204/GequBao-Android'
 const SITE_URL = 'https://www.gequbao.com'
 
 const stack = [
@@ -59,6 +59,7 @@ function closeReward() {
         <p class="muted" style="font-size: 13px; line-height: 1.6">
           一款简洁的安卓音乐播放器：支持在线搜索、热门推荐、排行榜、与云端歌曲。
         </p>
+        <p style="font-size: 10px;">App暂未使用远程更新服务，需要更新的自行前往发布页对比版本或者Q群中询问。</p>
       </section>
 
       <section class="card col" style="gap: 1px">
