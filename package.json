@@ -1,6 +1,6 @@
 {
   "name": "gequbao-android",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "歌曲宝 安卓手机 / 电视端（基于 Windows Vue3+Electron 代码移植，Capacitor 套壳）",
   "type": "module",
   "main": "dist/index.html",

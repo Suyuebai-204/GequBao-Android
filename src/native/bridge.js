@@ -68,3 +68,21 @@ export async function saveToDownloadsNative(name, dataBase64, mime = 'audio/mpeg
 
 /* 后台播放 / 锁屏控制器（MusicControls 原生插件） */
 export const MusicControls = registerPlugin('MusicControls')
+
+/* 百度移动统计（BaiduStat 原生插件） */
+export const BaiduStat = registerPlugin('BaiduStat')
+
+export function statPageStart(page) {
+  if (!isNative() || !page) return
+  BaiduStat.onPageStart({ page }).catch(() => {})
+}
+
+export function statPageEnd(page) {
+  if (!isNative() || !page) return
+  BaiduStat.onPageEnd({ page }).catch(() => {})
+}
+
+export function statEvent(eventId, label, acc = 1, attributes = {}) {
+  if (!isNative() || !eventId || !label) return
+  BaiduStat.onEvent({ eventId, label, acc, attributes }).catch(() => {})
+}

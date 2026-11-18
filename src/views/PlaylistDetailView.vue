@@ -4,8 +4,9 @@ import Icon from '../components/Icon.vue'
 import SongList from '../components/SongList.vue'
 import LoginModal from '../components/LoginModal.vue'
 import { player } from '../composables/player'
+import { openSheet } from '../composables/sheet.js'
 import { showToast, dismissToast } from '../composables/toast.js'
-import { fetchPlaylistDetail } from '../services/cloudPlaylist.js'
+import { fetchPlaylistDetail, removeSongFromPlaylist } from '../services/cloudPlaylist.js'
 import { useAuth } from '../services/auth.js'
 
 const props = defineProps({
@@ -23,6 +24,7 @@ const page = ref(1)
 const lastPage = ref(1)
 const total = ref(0)
 const showLogin = ref(false)
+const pendingId = ref(null)
 
 // 少数条目只有 music_id，没有 title/author/pic：用 songId 再解析一次详情
 async function resolve(id) {
@@ -106,6 +108,31 @@ function goPage(p) {
   load(p)
 }
 
+async function onRemove(song) {
+  if (!song?.id || pendingId.value != null) return
+  const name = String(song.title || `歌曲 #${song.id}`)
+  const shortName = name.length > 18 ? `${name.slice(0, 18)}…` : name
+  const v = await openSheet({
+    title: `确定从歌单移出「${shortName}」？此操作会同步到账号，无法撤销。`,
+    options: [{ label: '移出', value: 'remove', danger: true }]
+  })
+  if (v !== 'remove') return
+
+  pendingId.value = song.id
+  try {
+    const r = await removeSongFromPlaylist({ playlistId: props.playlistId, musicId: song.id })
+    if (!r.ok) {
+      showToast(r.msg || '移出失败', { type: 'error' })
+      return
+    }
+    // 当前页只剩这一首且不是第一页时退回上一页，避免停在空白页
+    const target = songs.value.length === 1 && page.value > 1 ? page.value - 1 : page.value
+    await load(target, { announce: true })
+  } finally {
+    pendingId.value = null
+  }
+}
+
 async function onLoginClose() {
   showLogin.value = false
   if (auth.loggedIn) load(1)
@@ -172,7 +199,16 @@ watch(() => auth.loggedIn, (v) => {
     </div>
 
     <template v-else>
-      <SongList :songs="songs" :active-id="player.song?.id" show-cover @play="onPlay" />
+      <SongList :songs="songs" :active-id="player.song?.id" show-cover @play="onPlay">
+        <template #trailing="{ id, song }">
+          <button class="row-x" :disabled="pendingId != null"
+            :title="String(pendingId) === String(id) ? '正在移出…' : '从歌单移出'"
+            :aria-label="String(pendingId) === String(id) ? '正在移出…' : '从歌单移出'"
+            @click.stop="onRemove(song)">
+            <Icon name="close" :size="13" />
+          </button>
+        </template>
+      </SongList>
       <div v-if="lastPage > 1" class="pager">
         <button class="tool-btn" :disabled="page <= 1" @click="goPage(page - 1)">上一页</button>
         <span class="muted">{{ page }} / {{ lastPage }} 页</span>
@@ -276,6 +312,22 @@ watch(() => auth.loggedIn, (v) => {
   padding: 6px 0;
   font-size: 13px;
 }
+
+.row-x {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: background var(--t), color var(--t);
+}
+.row-x:active { background: color-mix(in srgb, #e5484d 14%, transparent); color: #e5484d; }
+.row-x:disabled { opacity: 0.4; cursor: default; }
 
 /* 触屏无 hover：去掉粘滞高亮 */
 .bar .btn:hover {

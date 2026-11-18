@@ -5,6 +5,7 @@
 // 编辑：POST /member/playlist/edit    { id, title, description }
 // 删除：POST /member/playlist/delete  { id }
 // 加歌：POST /member/playlist/add-song { playlist_id, music_id }
+// 移出：POST /member/playlist/remove-song { playlist_id, music_id }
 // Cookie 由 http.js 的会话 jar 自动附加；会话失效时静默重登并重试一次。
 import { request, formBody } from './http.js'
 import { refreshSession } from './auth.js'
@@ -16,7 +17,8 @@ const API = {
   create: `${BASE}/member/playlist/create`,
   edit: `${BASE}/member/playlist/edit`,
   delete: `${BASE}/member/playlist/delete`,
-  addSong: `${BASE}/member/playlist/add-song`
+  addSong: `${BASE}/member/playlist/add-song`,
+  removeSong: `${BASE}/member/playlist/remove-song`
 }
 
 const AJAX_HEADERS = {
@@ -170,4 +172,11 @@ export async function addSongToPlaylist({ playlistId, musicId } = {}) {
     `${BASE}/music/${musicId}`
   )
   return r.ok ? { ...r, msg: r.msg || '成功加入歌单' } : r
+}
+
+/** 从指定歌单移出歌曲（站点歌单页「移出」使用的接口） */
+export async function removeSongFromPlaylist({ playlistId, musicId } = {}) {
+  if (!playlistId || !musicId) return { ok: false, needLogin: false, msg: '缺少歌单或歌曲 ID' }
+  const r = await post(API.removeSong, { music_id: musicId, playlist_id: playlistId })
+  return r.ok ? { ...r, msg: r.msg || '移出成功' } : r
 }

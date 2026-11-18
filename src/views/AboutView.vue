@@ -4,6 +4,7 @@ import pkg from '../../package.json'
 import Icon from '../components/Icon.vue'
 import wxzsm from '../images/wxzsm.png'
 import zfb from '../images/zfb.png'
+import { openExternalBrowser } from '../utils/openExternal.js'
 
 const emit = defineEmits(['navigate'])
 
@@ -22,8 +23,9 @@ const stack = [
   { label: 'MediaStore', desc: '本地媒体库' }
 ]
 
+// 统一走浏览器打开：避免 github.com 等链接被手机上已安装的对应 App（App Link）接管
 function open(url) {
-  window.api?.openExternal?.(url)
+  openExternalBrowser(url)
 }
 // 赏赞二维码预览：优先用原生大图查看（若已实现），否则回退到网页内弹窗
 const reward = ref(null)
@@ -118,7 +120,7 @@ function closeReward() {
         <div class="row" style="gap: 8px">
           <button class="btn btn-primary" @click="open(REPO_URL)">
             <Icon name="link" :size="14" />
-            Gitee 仓库
+            Github 仓库
           </button>
           <button class="btn" @click="open(SITE_URL)">
             <Icon name="discover" :size="14" />

@@ -2,6 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application
+        android:name=".GequbaoApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -10,6 +11,32 @@
         android:theme="@style/AppTheme"
         android:banner="@drawable/tv_banner"
         android:usesCleartextTraffic="true">
+
+        <!-- 百度移动统计 -->
+        <meta-data
+            android:name="BaiduMobAd_STAT_ID"
+            android:value="9e4f6638ab" />
+        <meta-data
+            android:name="BaiduMobAd_CHANNEL"
+            android:value="Gequbao_Vue" />
+        <meta-data
+            android:name="BaiduMobAd_EXCEPTION_LOG"
+            android:value="true" />
+        <meta-data
+            android:name="BaiduMobAd_SEND_STRATEGY"
+            android:value="APP_START" />
+        <meta-data
+            android:name="BaiduMobAd_ONLY_WIFI"
+            android:value="false" />
+        <meta-data
+            android:name="BaiduMobAd_CELL_LOCATION"
+            android:value="false" />
+        <meta-data
+            android:name="BaiduMobAd_GPS_LOCATION"
+            android:value="false" />
+        <meta-data
+            android:name="BaiduMobAd_WIFI_LOCATION"
+            android:value="false" />
 
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
@@ -49,8 +76,10 @@
         </provider>
     </application>
 
-    <!-- 网络（接口/直链/验证码识别） -->
+    <!-- 网络（接口/直链/验证码识别 / 百度统计） -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 
     <!-- 本地音乐库扫描 -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"

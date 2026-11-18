@@ -9,6 +9,7 @@ class MainActivity : BridgeActivity() {
         // 注册自定义原生插件（后台播放控制 + 媒体库/HTTP 代理 + 状态栏控制）
         registerPlugin(GequbaoPlugin::class.java)
         registerPlugin(MusicControlsPlugin::class.java)
+        registerPlugin(BaiduStatPlugin::class.java)
         super.onCreate(savedInstanceState)
 
         // 允许混合内容（http 封面/直链在 https 容器内可正常加载，避免软件内封面不显示）
