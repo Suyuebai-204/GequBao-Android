@@ -112,7 +112,7 @@ async function copy() {
   width: min(400px, 94vw);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-3);
   overflow: hidden;
   animation: dialog-pop 0.2s var(--ease) both;
@@ -134,7 +134,7 @@ async function copy() {
   justify-content: center;
   padding: 4px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-2);
   cursor: pointer;
@@ -146,21 +146,21 @@ async function copy() {
   padding: 16px;
 }
 .ck-warn {
-  padding: 12px 14px;
-  border: 1px solid color-mix(in srgb, #ff9f43 40%, transparent);
-  border-radius: 10px;
-  background: color-mix(in srgb, #ff9f43 10%, var(--surface-2));
-  font-size: 13px;
-  line-height: 1.6;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
   color: var(--text-2);
 }
 .ck-warn p {
-  margin: 0 0 6px;
+  margin: 0 0 var(--space-2);
 }
 .ck-warn-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #e8890c;
+  font-size: var(--fs-title);
+  font-weight: 600;
+  color: var(--text);
 }
 .ck-warn ul {
   margin: 0;

@@ -141,7 +141,7 @@ function open(key) {
   width: 100%;
   padding: 6px 8px;
   border: 0;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: transparent;
   color: inherit;
   font: inherit;
@@ -204,7 +204,7 @@ function open(key) {
   flex-shrink: 0;
   min-width: 26px;
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-2);
   color: var(--text-2);
   font-size: 12px;

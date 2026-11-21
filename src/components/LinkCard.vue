@@ -84,14 +84,14 @@ onMounted(fetchMeta)
   height: 16px;
   width: 60%;
   background: var(--surface-active);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   margin-bottom: 10px;
 }
 .skeleton .sk-desc {
   height: 13px;
   width: 100%;
   background: var(--surface-active);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
 }
 
 .card-title {
@@ -107,7 +107,7 @@ onMounted(fetchMeta)
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--accent) 14%, var(--surface));
   color: var(--accent);
   font-size: 15px;

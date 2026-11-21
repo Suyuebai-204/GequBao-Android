@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import Icon from './Icon.vue'
 
 const emit = defineEmits(['search', 'play'])
@@ -327,9 +327,9 @@ defineExpose({ focus, blur, setKeyword })
   overflow: auto;
   padding: 4px;
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--surface);
-  box-shadow: var(--shadow-3);
+  box-shadow: var(--shadow-2);
   animation: fade-up 0.16s var(--ease) both;
 }
 

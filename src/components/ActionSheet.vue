@@ -52,7 +52,7 @@ function dismiss() {
   padding: 8px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-3);
   animation: sheet-up 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
@@ -73,7 +73,7 @@ function dismiss() {
   background: transparent;
   color: var(--text);
   font-size: 15px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: background var(--t);
 }
@@ -101,7 +101,7 @@ function dismiss() {
   background: var(--surface-2);
   color: var(--text-2);
   font-size: 15px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: background var(--t);
 }

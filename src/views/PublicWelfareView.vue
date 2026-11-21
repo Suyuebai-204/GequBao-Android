@@ -106,15 +106,11 @@ const handleOpen = (url) => openExternalBrowser(url)
 .hero {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 18px 16px;
-  border-radius: var(--radius);
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-4);
+  border-radius: var(--radius-xl);
   border: 1px solid var(--border);
-  background: linear-gradient(
-    150deg,
-    color-mix(in srgb, var(--accent) 18%, var(--surface)),
-    var(--surface)
-  );
+  background: var(--accent-bg);
 }
 .hero-icon {
   width: 52px;
@@ -123,27 +119,23 @@ const handleOpen = (url) => openExternalBrowser(url)
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 14px;
-  color: #fff;
-  background: linear-gradient(
-    140deg,
-    var(--accent),
-    color-mix(in srgb, var(--accent) 60%, #000)
-  );
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 32%, transparent);
+  border-radius: var(--radius-lg);
+  color: var(--on-accent);
+  background: var(--accent);
+  box-shadow: var(--shadow-2);
 }
 .hero-text {
   min-width: 0;
 }
 .hero-title {
   margin: 0;
-  font-size: 21px;
-  font-weight: 800;
+  font-size: var(--fs-h2);
+  font-weight: 600;
   letter-spacing: 0.01em;
 }
 .hero-sub {
-  margin: 3px 0 0;
-  font-size: 13px;
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-body);
   color: var(--text-2);
 }
 .hero-desc {

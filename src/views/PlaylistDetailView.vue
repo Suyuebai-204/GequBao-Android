@@ -1,11 +1,12 @@
 <script setup>
-import { onActivated, ref, watch } from 'vue'
+import { onActivated, onDeactivated, ref, watch } from 'vue'
 import Icon from '../components/Icon.vue'
 import SongList from '../components/SongList.vue'
 import LoginModal from '../components/LoginModal.vue'
 import { player } from '../composables/player'
 import { openSheet } from '../composables/sheet.js'
 import { showToast, dismissToast } from '../composables/toast.js'
+import { useBatchDownload } from '../composables/batchDownload.js'
 import { fetchPlaylistDetail, removeSongFromPlaylist } from '../services/cloudPlaylist.js'
 import { useAuth } from '../services/auth.js'
 
@@ -25,6 +26,21 @@ const lastPage = ref(1)
 const total = ref(0)
 const showLogin = ref(false)
 const pendingId = ref(null)
+
+const {
+  selecting: batchSelecting,
+  selectedIds: batchSelectedIds,
+  selectedCount: batchCount,
+  downloading: batchDownloading,
+  progressText: batchProgress,
+  enter: enterBatch,
+  exit: exitBatch,
+  clearSelection: clearBatch,
+  toggle: toggleBatch,
+  selectAll: selectAllBatch,
+  invertSelection: invertBatch,
+  start: startBatch
+} = useBatchDownload(() => songs.value)
 
 // 少数条目只有 music_id，没有 title/author/pic：用 songId 再解析一次详情
 async function resolve(id) {
@@ -52,6 +68,7 @@ async function load(p = 1, { announce = false } = {}) {
     error.value = '缺少歌单 ID'
     return
   }
+  clearBatch()
   const seq = ++loadSeq
   const tip = showToast(announce ? '正在刷新歌单歌曲…' : '正在读取歌单歌曲…', { duration: 0 })
   loading.value = true
@@ -96,15 +113,17 @@ async function load(p = 1, { announce = false } = {}) {
 }
 
 function onPlay(index) {
+  if (batchSelecting.value) return
   emit('play-list', { list: songs.value, index })
 }
 
 function playAll() {
+  if (batchSelecting.value) return
   if (songs.value.length) emit('play-list', { list: songs.value, index: 0 })
 }
 
 function goPage(p) {
-  if (p < 1 || p > lastPage.value || p === page.value) return
+  if (p < 1 || p > lastPage.value || p === page.value || batchDownloading.value) return
   load(p)
 }
 
@@ -152,6 +171,7 @@ onActivated(() => {
   songs.value = []
   load(1, { announce: true })
 })
+onDeactivated(() => exitBatch())
 
 // 会话恢复晚于页面挂载时，补拉一次，避免一直停在「需要登录」
 watch(() => auth.loggedIn, (v) => {
@@ -166,9 +186,36 @@ watch(() => auth.loggedIn, (v) => {
         <span class="bar-title truncate">{{ title || '歌单' }}</span>
         <span class="muted bar-sub">共 {{ total }} 首歌曲</span>
       </div>
-      <button class="btn btn-primary" :disabled="!songs.length" @click="playAll">
+      <button class="btn btn-primary" :disabled="!songs.length || batchSelecting" @click="playAll">
         <Icon name="play" :size="14" />播放全部
       </button>
+    </div>
+
+    <!-- 批量下载 -->
+    <div class="batch-bar card">
+      <template v-if="!batchSelecting">
+        <button class="tool-btn" :disabled="!songs.length || batchDownloading" @click="enterBatch">
+          <Icon name="check" :size="14" />
+          批量下载
+        </button>
+        <span class="muted batch-tip">可选歌曲后批量下载，每首间隔 0.3 秒</span>
+      </template>
+      <template v-else>
+        <div class="batch-actions">
+          <button class="tool-btn" :disabled="batchDownloading" @click="selectAllBatch">全选</button>
+          <button class="tool-btn" :disabled="batchDownloading" @click="invertBatch">反选</button>
+          <button class="tool-btn primary" :disabled="!batchCount || batchDownloading" @click="startBatch">
+            <Icon name="download" :size="14" />
+            下载
+          </button>
+          <button class="tool-btn" :disabled="batchDownloading" @click="exitBatch">取消</button>
+        </div>
+        <div class="batch-status">
+          <span class="batch-count">已选 {{ batchCount }} 首</span>
+          <span v-if="batchDownloading" class="muted batch-progress">{{ batchProgress }}</span>
+          <span v-else class="muted batch-tip">点击歌曲切换选中状态</span>
+        </div>
+      </template>
     </div>
 
     <div v-if="!auth.loggedIn || needLogin" class="card state">
@@ -199,7 +246,8 @@ watch(() => auth.loggedIn, (v) => {
     </div>
 
     <template v-else>
-      <SongList :songs="songs" :active-id="player.song?.id" show-cover @play="onPlay">
+      <SongList :songs="songs" :active-id="player.song?.id" show-cover :select-mode="batchSelecting"
+        :selected-ids="batchSelectedIds" @play="onPlay" @toggle-select="toggleBatch">
         <template #trailing="{ id, song }">
           <button class="row-x" :disabled="pendingId != null"
             :title="String(pendingId) === String(id) ? '正在移出…' : '从歌单移出'"
@@ -210,9 +258,9 @@ watch(() => auth.loggedIn, (v) => {
         </template>
       </SongList>
       <div v-if="lastPage > 1" class="pager">
-        <button class="tool-btn" :disabled="page <= 1" @click="goPage(page - 1)">上一页</button>
+        <button class="tool-btn" :disabled="page <= 1 || batchDownloading" @click="goPage(page - 1)">上一页</button>
         <span class="muted">{{ page }} / {{ lastPage }} 页</span>
-        <button class="tool-btn" :disabled="page >= lastPage" @click="goPage(page + 1)">下一页</button>
+        <button class="tool-btn" :disabled="page >= lastPage || batchDownloading" @click="goPage(page + 1)">下一页</button>
       </div>
     </template>
 
@@ -281,17 +329,94 @@ watch(() => auth.loggedIn, (v) => {
 
 .tool-btn {
   flex-shrink: 0;
-  padding: 6px 12px;
+  height: 32px;
+  padding: 0 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   color: var(--text-2);
   font-size: 13px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
 }
 
 .tool-btn:disabled {
   opacity: 0.5;
+  cursor: default;
+}
+
+.tool-btn.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.batch-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 10px 12px;
+}
+
+.batch-actions,
+.batch-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.batch-actions {
+  flex: 0 0 auto;
+}
+
+.batch-status {
+  flex: 1 1 220px;
+  min-width: 0;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.batch-tip,
+.batch-progress {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.batch-count {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+@media (max-width: 640px) {
+  .batch-bar {
+    gap: 6px;
+    padding: 8px 10px;
+  }
+  .batch-bar .tool-btn {
+    height: 30px;
+    padding: 0 9px;
+    font-size: 12px;
+  }
+  .batch-actions,
+  .batch-status {
+    flex: 1 1 100%;
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+  }
+  .batch-tip,
+  .batch-progress {
+    flex: 1 1 100%;
+  }
 }
 
 .empty {

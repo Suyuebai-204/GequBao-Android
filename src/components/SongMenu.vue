@@ -230,7 +230,7 @@ async function onPlaylistCreated() {
   justify-content: center;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-3);
   cursor: pointer;
@@ -252,7 +252,7 @@ async function onPlaylistCreated() {
   height: 50px;
   padding: 0 12px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text);
   font-size: 15px;
@@ -290,7 +290,7 @@ async function onPlaylistCreated() {
   height: 46px;
   margin-top: 6px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--surface-2);
   color: var(--text-2);
   font-size: 15px;
@@ -308,7 +308,7 @@ async function onPlaylistCreated() {
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: var(--surface);
   box-shadow: var(--shadow-3);
   animation: sm-pop 0.2s var(--ease) both;
@@ -373,7 +373,7 @@ async function onPlaylistCreated() {
   width: 100%;
   padding: 9px 10px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: transparent;
   text-align: left;
   color: var(--text);

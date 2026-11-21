@@ -55,7 +55,7 @@ function closeReward() {
               <span class="app-name">{{ APP_NAME }}</span>
               <span class="app-badge">重制版</span>
             </div>
-            <span class="muted">v{{ pkg.version }} • Android</span>
+            <span class="muted">v{{ pkg.version }} • Android & Android TV</span>
           </div>
         </div>
         <p class="muted" style="font-size: 13px; line-height: 1.6">
@@ -79,7 +79,7 @@ function closeReward() {
           </div>
         </div>
         <div
-          style="color: gray;font-size: 12px;margin-top: 8px; padding: 10px; border-radius: 10px;border: 1px solid rgba(128,128,128,0.2);">
+          style="color: var(--text-3);font-size: var(--fs-caption);margin-top: var(--space-2); padding: var(--space-3); border-radius: var(--radius-md);border: 1px solid var(--border);">
           <b>开发者留言：</b><br>
           &emsp;1.之前的<u>歌曲宝App</u><b>（Lua语言开发）</b>是我用手机编程工具做的，所以限制很多，基本是纯手搓，很多性能和功能的问题不能很好的解决；<br>
           &emsp;2.所以，在学习新语言后就把它停更了，现在采用新语言和新框架进行开发，得益于AI的帮助，很多问题都能解决，方便许多；<br>
@@ -91,7 +91,7 @@ function closeReward() {
           <button class="btn btn-primary" @click="previewReward('微信赞赏', wxzsm)">
             微信赞赏
           </button>
-          <button class="btn" style="background: #966ee4;color: #fff;" @click="open('https://afdian.com/a/suyuebai')">
+          <button class="btn btn-primary" @click="open('https://afdian.com/a/suyuebai')">
             爱发电
           </button>
           <button class="btn" @click="previewReward('支付宝赞赏', zfb)">
@@ -188,7 +188,7 @@ function closeReward() {
   align-items: center;
   flex-shrink: 0;
   padding: 1px 5px;
-  border-radius: 5px;
+  border-radius: var(--space-1);
   background: rgba(128, 128, 128, 0.25);
   color: var(--text-2);
   font-size: 11px;
@@ -223,7 +223,7 @@ function closeReward() {
 
 .badge {
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-active);
   color: var(--text-2);
   font-size: 12px;
@@ -344,7 +344,7 @@ function closeReward() {
   border: none;
   background: transparent;
   color: var(--text-3);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
 }
 
@@ -362,7 +362,7 @@ function closeReward() {
   width: 210px;
   height: 210px;
   max-width: 100%;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: #fff;
   object-fit: contain;
 }

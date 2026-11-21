@@ -93,21 +93,40 @@ export function closeSongMenuLayer() {
 
 const resolveCache = new Map() // musicId -> { at, promise }
 
-function resolveSong() {
-  const id = songId(state.song)
-  if (!id) return Promise.reject(new Error('歌曲 id 无效'))
-  const hit = resolveCache.get(id)
+/** 按 musicId 解析详情/直链，菜单与批量下载共用同一份 60 秒缓存 */
+export function resolveSongDetail(id) {
+  const musicId = Number(id) || 0
+  if (!musicId) return Promise.reject(new Error('歌曲 id 无效'))
+  const hit = resolveCache.get(musicId)
   if (hit && Date.now() - hit.at < 60_000) return hit.promise
 
-  const promise = window.api.player.song(id).then((res) => {
+  const promise = window.api.player.song(musicId).then((res) => {
     if (!res?.ok) throw new Error(res?.error || '解析歌曲页面失败')
     return { detail: res.data?.detail || {}, url: String(res.data?.url || '') }
   }).catch((error) => {
-    resolveCache.delete(id)
+    resolveCache.delete(musicId)
     throw error
   })
-  resolveCache.set(id, { at: Date.now(), promise })
+  resolveCache.set(musicId, { at: Date.now(), promise })
   return promise
+}
+
+function resolveSong() {
+  return resolveSongDetail(songId(state.song))
+}
+
+/** 下载附带封面/歌词的用户设置；取不到时回退为默认开启 */
+export async function getDownloadOptions() {
+  try {
+    const sres = await window.api.settings.get()
+    const s = sres?.data ?? sres
+    return {
+      downloadCover: typeof s?.downloadCover === 'boolean' ? s.downloadCover : true,
+      downloadLyric: typeof s?.downloadLyric === 'boolean' ? s.downloadLyric : true
+    }
+  } catch {
+    return { downloadCover: true, downloadLyric: true }
+  }
 }
 
 async function exclusive(task) {
@@ -160,16 +179,7 @@ export function menuDownload() {
     const tip = showToast('正在解析并下载…', { duration: 0 })
     try {
       const { detail, url } = await resolveSong()
-      let downloadCover = true
-      let downloadLyric = true
-      try {
-        const sres = await window.api.settings.get()
-        const s = sres?.data ?? sres
-        if (typeof s?.downloadCover === 'boolean') downloadCover = s.downloadCover
-        if (typeof s?.downloadLyric === 'boolean') downloadLyric = s.downloadLyric
-      } catch {
-        /* 取不到设置则用默认 */
-      }
+      const { downloadCover, downloadLyric } = await getDownloadOptions()
 
       const res = await window.api.player.download({
         musicId: detail.id,

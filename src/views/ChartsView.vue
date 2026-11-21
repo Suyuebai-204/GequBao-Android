@@ -328,7 +328,7 @@ onMounted(initTabs)
   color: var(--accent);
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
   transition: background var(--t), color var(--t), border-color var(--t);
 }

@@ -41,6 +41,21 @@ function gequbaoProxy() {
     return raw ? [raw] : []
   }
 
+  // 前端本地 jar 在页面刷新 / dev server 重启后仍可能保存着有效会话，
+  // 而服务端 jar 是内存态、重启即空。用前端带过来的 Cookie 给空 jar 补种，
+  // 只补缺失项，避免并发请求里旧值覆盖服务端刚续期的新值。
+  function seedJar(cookieHeaderValue) {
+    if (typeof cookieHeaderValue !== 'string' || !cookieHeaderValue) return
+    for (const part of cookieHeaderValue.split(';')) {
+      const p = part.trim()
+      const i = p.indexOf('=')
+      if (i <= 0) continue
+      const name = p.slice(0, i).trim()
+      const value = p.slice(i + 1).trim()
+      if (name && value && !jar.has(name)) jar.set(name, value)
+    }
+  }
+
   const PASS_HEADERS = [
     'accept',
     'accept-language',
@@ -61,6 +76,10 @@ function gequbaoProxy() {
         res.end(JSON.stringify({ ok: true }))
         return
       }
+      // 浏览器同源策略读不到 gequbao.com 的 Cookie，所以由前端从本地 jar 取出后
+      // 通过自定义头交给本代理；这里只补种，不覆盖服务端已有的新值。
+      seedJar(req.headers['x-gqb-cookie'])
+
       const targetPath = parsed.pathname.replace(/^\/gqb/, '') + parsed.search
       let curUrl = GQB_ORIGIN + (targetPath || '')
 

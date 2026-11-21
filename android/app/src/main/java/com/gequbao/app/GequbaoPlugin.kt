@@ -1,9 +1,11 @@
 package com.yygzs.gqbs
 
 import android.Manifest
+import android.app.UiModeManager
 import android.content.ContentUris
 import android.content.Context
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Base64
@@ -40,6 +42,35 @@ import org.json.JSONObject
  */
 @CapacitorPlugin(name = "Gequbao")
 class GequbaoPlugin : Plugin() {
+
+    companion object {
+        /** 系统级 TV 判定：UI 模式 + Leanback/Television 硬件特性，比 UA 可靠 */
+        fun isTvDevice(context: Context): Boolean {
+            val uiModeType = try {
+                (context.getSystemService(Context.UI_MODE_SERVICE) as? UiModeManager)?.currentModeType
+            } catch (_: Exception) {
+                null
+            }
+            val leanback = try {
+                context.packageManager.hasSystemFeature("android.software.leanback")
+            } catch (_: Exception) {
+                false
+            }
+            val television = try {
+                context.packageManager.hasSystemFeature("android.hardware.television")
+            } catch (_: Exception) {
+                false
+            }
+            return uiModeType == Configuration.UI_MODE_TYPE_TELEVISION || leanback || television
+        }
+    }
+
+    @PluginMethod
+    fun isTv(call: PluginCall) {
+        val result = JSObject()
+        result.put("value", isTvDevice(context))
+        call.resolve(result)
+    }
 
     @PluginMethod
     fun http(call: PluginCall) {

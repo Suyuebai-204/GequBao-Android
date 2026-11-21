@@ -89,7 +89,7 @@ async function submit() {
   width: min(420px, 92vw);
   padding: 20px 16px 16px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   box-shadow: var(--shadow-3);
   animation: fb-pop 0.2s var(--ease) both;
@@ -102,7 +102,7 @@ async function submit() {
   display: flex;
   padding: 4px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-3);
   cursor: pointer;
@@ -134,7 +134,7 @@ async function submit() {
   min-height: 88px;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface-2);
   color: var(--text);
   font-family: inherit;
@@ -181,7 +181,7 @@ async function submit() {
   height: 36px;
   padding: 0 16px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--accent);
   color: var(--on-accent);
   font-size: 14px;

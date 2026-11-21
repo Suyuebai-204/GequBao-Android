@@ -8,7 +8,7 @@ import { beginNetwork, endNetwork } from '../composables/networkHint.js'
 export const UA = `Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36`
 
 // 构建标记：控制台出现这行，才说明当前运行的是最新代码
-console.log('[gqb] http.js build=2026-11-06 proxy-v3-verify')
+console.log('[gqb] http.js build=2026-11-19 proxy-v4-cookie-seed')
 
 const DEFAULT_TIMEOUT = 12000
 
@@ -304,12 +304,16 @@ async function doRequest(url, options = {}) {
       // 既读不到 Location 也读不到 body，无法在浏览器侧手动跟随重定向或抓 302 的 Set-Cookie。
       if (onDevServer() && /^https?:\/\/(www\.)?gequbao\.com\//i.test(url)) {
         const proxyUrl = url.replace(/^https?:\/\/(www\.)?gequbao\.com/, '/gqb')
+        // 浏览器读不到 gequbao.com 域下的 Cookie，但本地 jar 里保存着登录/续期后的会话。
+        // 通过自定义头交给 /gqb，代理会在服务端 jar 缺项时补种，避免刷新后变游客会话。
+        const localCookies = cookieHeader(url)
         const res = await fetch(proxyUrl, {
           method,
           headers: {
             'User-Agent': UA,
             Accept: accept,
             'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            ...(localCookies ? { 'x-gqb-cookie': localCookies } : {}),
             ...headers
           },
           body: method === 'GET' || method === 'HEAD' ? undefined : body,

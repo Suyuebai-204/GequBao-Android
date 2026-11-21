@@ -280,7 +280,7 @@ watch(() => auth.loggedIn, (v) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--accent-soft);
   color: var(--accent);
 }
@@ -289,7 +289,7 @@ watch(() => auth.loggedIn, (v) => {
   display: flex;
   padding: 4px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-3);
   cursor: pointer;

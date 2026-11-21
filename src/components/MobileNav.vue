@@ -49,9 +49,12 @@ function go(key) {
   display: flex;
   align-items: center;
   justify-content: space-around;
-  padding: 6px 10px calc(6px + env(safe-area-inset-bottom, 0px));
+  padding: var(--space-2) var(--space-3) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
   background: var(--surface);
   border-top: 1px solid var(--border);
+  /* 顶部圆角与页面卡片呼应，弱阴影表达浮起层级 */
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  box-shadow: var(--shadow-2);
   --nav-h: 58px;
   height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
 }
@@ -61,23 +64,30 @@ function go(key) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: var(--space-1);
   flex: 1;
   max-width: 110px;
-  height: 46px;
+  height: 48px;
   border: 0;
   background: transparent;
+  /* 未选中中性 500，选中由 .active 切主色；图标继承 currentColor 保持单色线性 */
   color: var(--text-3);
-  font-size: 11px;
+  font-size: var(--fs-caption);
   cursor: pointer;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   transition: color var(--t), background var(--t);
 }
 .nav-btn.active {
   color: var(--accent);
 }
+.nav-btn.active :deep(svg) {
+  color: var(--accent);
+}
 .nav-btn:active {
-  background: var(--surface-active);
+  background: transparent;
+}
+.nav-btn:focus {
+  outline: none;
 }
 .nav-label {
   line-height: 1;
@@ -94,6 +104,6 @@ function go(key) {
   right: auto;
   top: 0;
   height: 100%;
-  padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
 }
 </style>

@@ -21,8 +21,8 @@ export function isDarkTheme(theme) {
 function barColors(theme) {
   const dark = isDarkTheme(theme)
   return {
-    status: { color: dark ? '0f0f12' : 'f6f7f9', dark: !dark },
-    nav: { color: dark ? '17171b' : 'ffffff', dark: !dark }
+    status: { color: dark ? '121316' : 'F8F8F8', dark: !dark },
+    nav: { color: dark ? '1C1D22' : 'FFFFFF', dark: !dark }
   }
 }
 

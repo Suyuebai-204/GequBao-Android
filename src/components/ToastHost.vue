@@ -32,7 +32,7 @@ const toast = useToast()
 .toast {
   max-width: 78vw;
   padding: 11px 20px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(22, 22, 26, 0.92);
   color: #fff;
   font-size: 13px;

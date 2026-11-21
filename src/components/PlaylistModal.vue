@@ -106,7 +106,7 @@ async function submit() {
 .pm-dialog {
   width: min(400px, 94vw);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: var(--surface);
   box-shadow: var(--shadow-3);
   overflow: hidden;
@@ -128,7 +128,7 @@ async function submit() {
   display: flex;
   padding: 4px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-3);
   cursor: pointer;

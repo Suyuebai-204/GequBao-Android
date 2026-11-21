@@ -53,7 +53,7 @@ onMounted(() => {
 }
 .versions code {
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--space-1);
   background: var(--code-bg);
   color: var(--code-text);
 }

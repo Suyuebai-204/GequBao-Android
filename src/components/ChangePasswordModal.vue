@@ -113,7 +113,7 @@ async function submit() {
   width: min(360px, 92vw);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-3);
   overflow: hidden;
   animation: dialog-pop 0.2s var(--ease) both;
@@ -135,7 +135,7 @@ async function submit() {
   justify-content: center;
   padding: 4px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-2);
   cursor: pointer;
@@ -154,7 +154,7 @@ async function submit() {
 .cpw-submit {
   height: 44px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--accent);
   color: #fff;
   font-size: 15px;

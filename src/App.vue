@@ -5,8 +5,8 @@ import Icon from './components/Icon.vue'
 import SearchBox from './components/SearchBox.vue'
 import PlayerSheet from './components/PlayerSheet.vue'
 import MobileNav from './components/MobileNav.vue'
-import { remoteFocus } from './mobile/remoteFocus.js'
-import { player, playTrack, playList, playLocalList, close } from './composables/player'
+import { remoteFocus as vRemoteFocus } from './mobile/remoteFocus.js'
+import { player, playTrack, playList, playLocalList, close, toggle, next, prev } from './composables/player'
 import { recent, clearRecent } from './composables/recent'
 import { openSheet, useSheet, closeSheet } from './composables/sheet'
 import { showToast } from './composables/toast'
@@ -30,7 +30,7 @@ import PublicWelfareView from './views/PublicWelfareView.vue'
 import ToastHost from './components/ToastHost.vue'
 import ActionSheet from './components/ActionSheet.vue'
 import SongMenu from './components/SongMenu.vue'
-import { closeSongMenuLayer } from './composables/songMenu.js'
+import { closeSongMenuLayer, openSongMenu } from './composables/songMenu.js'
 import PlaylistsView from './views/PlaylistsView.vue'
 import PlaylistDetailView from './views/PlaylistDetailView.vue'
 
@@ -202,8 +202,50 @@ function handleBack() {
 }
 
 function onGlobalKey(e) {
-  if (e.key !== 'Escape') return
-  handleBack()
+  switch (e.key) {
+    case 'Escape':
+      handleBack()
+      break
+
+    // TV 遥控常用快捷键；输入框内不抢搜索键，避免打断正在输入的内容。
+    case 'Search': {
+      if (!isSubPage.value && !/^(INPUT|TEXTAREA)$/i.test(e.target?.tagName || '')) {
+        e.preventDefault()
+        expandSearch()
+      }
+      break
+    }
+    case 'ContextMenu':
+    case 'Menu': {
+      e.preventDefault()
+      if (!closeSongMenuLayer() && player.song) openSongMenu(player.song)
+      break
+    }
+    case 'MediaPlayPause':
+      e.preventDefault()
+      toggle()
+      break
+    case 'MediaPlay':
+      e.preventDefault()
+      if (!player.playing) toggle()
+      break
+    case 'MediaPause':
+      e.preventDefault()
+      if (player.playing) toggle()
+      break
+    case 'MediaTrackNext':
+      e.preventDefault()
+      next()
+      break
+    case 'MediaTrackPrevious':
+      e.preventDefault()
+      prev()
+      break
+    case 'MediaStop':
+      e.preventDefault()
+      close()
+      break
+  }
 }
 window.addEventListener('keydown', onGlobalKey)
 
@@ -328,11 +370,20 @@ if (window.isMobile) {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 12px;
+  gap: var(--space-3);
+  padding: 0 var(--space-4);
   padding-top: env(safe-area-inset-top, 0);
   border-bottom: 1px solid var(--border);
   background: var(--bg);
+}
+
+/* 宽屏 / TV：左侧栏是 fixed 且占满全高，顶栏必须让出它的宽度，
+   否则顶栏会盖住侧栏顶部，首个导航项也会被压在下面。 */
+:global(html.is-wide) .topbar {
+  margin-left: 76px;
+}
+:global(html.is-tv) .topbar {
+  margin-left: 200px;
 }
 
 /* 搜索展开时的透明遮罩：拦截栏外点击，避免误触导航/内容（点击即收起搜索） */
@@ -343,14 +394,15 @@ if (window.isMobile) {
 }
 
 .topbar-title {
-  font-size: 18px;
+  font-size: var(--fs-h2);
   font-weight: 600;
+  color: var(--text);
   min-width: 0;
 }
 .topbar-subtitle {
-  font-size: 10px;
+  font-size: var(--fs-caption);
   line-height: 1;
-  color: gray;
+  color: var(--text-3);
 }
 .topbar-logo {
   flex-shrink: 0;
@@ -361,7 +413,7 @@ if (window.isMobile) {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   min-width: 0;
 }
 
@@ -382,7 +434,7 @@ if (window.isMobile) {
 .content {
   flex: 1;
   min-height: 0;
-  padding: 16px 16px 92px;
+  padding: var(--space-4) var(--space-4) 92px;
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -401,21 +453,21 @@ if (window.isMobile) {
   height: 52px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 12px;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
   padding-top: env(safe-area-inset-top, 0);
   border-bottom: 1px solid var(--border);
   background: var(--bg);
 }
-.subpage-head .back { margin-left: -6px; }
+.subpage-head .back { margin-left: calc(var(--space-2) * -1); }
 .subpage-title {
-  font-size: 17px;
+  font-size: var(--fs-h2);
   font-weight: 600;
   color: var(--text);
   min-width: 0;
 }
 .app-root.is-subpage .content {
-  padding: 16px 16px 24px;
+  padding: var(--space-4) var(--space-4) var(--space-6);
 }
 /* 子页面播放迷你条浮起时，给底部留出空间 */
 .app-root.is-subpage.has-mini .content {
@@ -437,12 +489,12 @@ if (window.isMobile) {
 }
 
 :global(html.is-tv) .topbar-title {
-  font-size: 22px;
+  font-size: var(--fs-h1);
 }
 
 /* 宽屏（平板 / 横屏）：内容区留白更充足 */
 :global(html.is-wide) .content {
-  padding: 20px 28px 92px;
+  padding: var(--space-6) var(--space-8) 92px;
 }
 
 /* 焦点高亮：TV 遥控器选中态（放大 + 发光边框） */
@@ -452,7 +504,7 @@ if (window.isMobile) {
 :global(html.is-tv) input:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   transform: scale(1.04);
   transition: transform var(--t);
 }
@@ -471,9 +523,9 @@ if (window.isMobile) {
 
 .exit-dialog {
   width: min(300px, 80vw);
-  padding: 20px 18px 14px;
+  padding: var(--space-6) var(--space-4) var(--space-3);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: var(--surface);
   box-shadow: var(--shadow-3);
   text-align: center;
@@ -488,29 +540,29 @@ if (window.isMobile) {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .exit-text {
-  margin: 0 0 16px;
-  font-size: 15px;
+  margin: 0 0 var(--space-4);
+  font-size: var(--fs-body);
   color: var(--text);
   text-align: center;
 }
 
 .exit-actions {
   display: flex;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .exit-btn {
   flex: 1;
   height: 40px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--surface-2);
   color: var(--text);
-  font-size: 14px;
+  font-size: var(--fs-body);
   cursor: pointer;
   transition: background var(--t), filter var(--t);
 }

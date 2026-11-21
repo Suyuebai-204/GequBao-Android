@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onDeactivated } from 'vue'
 import Icon from '../components/Icon.vue'
 import SongList from '../components/SongList.vue'
 import LoginModal from '../components/LoginModal.vue'
@@ -15,8 +15,9 @@ import {
 } from '../composables/favoriteMode.js'
 import { showToast } from '../composables/toast.js'
 import { openSheet } from '../composables/sheet.js'
+import { useBatchDownload } from '../composables/batchDownload.js'
 
-const emit = defineEmits(['play-list', 'navigate'])
+const emit = defineEmits(['play-list', 'navigate', 'search'])
 const { favorites } = useFavorites()
 
 const loading = ref(false)
@@ -37,6 +38,21 @@ const modeHint = computed(() => {
   if (favoriteMode.value === 'cloud') return '已选云端收藏，登录后可同步'
   return '仅保存在本机，无需登录'
 })
+
+const {
+  selecting: batchSelecting,
+  selectedIds: batchSelectedIds,
+  selectedCount: batchCount,
+  downloading: batchDownloading,
+  progressText: batchProgress,
+  enter: enterBatch,
+  exit: exitBatch,
+  clearSelection: clearBatchSelection,
+  toggle: toggleBatch,
+  selectAll: selectAllBatch,
+  invertSelection: invertBatch,
+  start: startBatch
+} = useBatchDownload(() => songs.value)
 
 async function resolve(id) {
   try {
@@ -85,6 +101,7 @@ async function loadPage(opts) {
 }
 
 async function refresh() {
+  clearBatchSelection()
   if (isCloud.value) {
     await loadPage({ keyword: keyword.value.trim(), page: cloudList.page })
   } else {
@@ -94,11 +111,19 @@ async function refresh() {
 
 async function search() {
   if (!isCloud.value) return
+  clearBatchSelection()
   await loadPage({ keyword: keyword.value.trim(), page: 1 })
 }
 
+function onInputSearch() {
+  // type="search" 的回车与原生清除按钮都会触发 search 事件，
+  // 此时 v-model 已同步 keyword，按当前关键词重新加载即可。
+  if (isCloud.value) search()
+}
+
 async function goPage(page) {
-  if (page < 1 || page > cloudList.lastPage || cloudList.loading) return
+  if (page < 1 || page > cloudList.lastPage || cloudList.loading || batchDownloading.value) return
+  clearBatchSelection()
   await loadPage({ keyword: keyword.value.trim(), page })
 }
 
@@ -125,6 +150,7 @@ async function onRemove(id) {
 }
 
 function onPlay(index) {
+  if (batchSelecting.value) return
   // 云端列表的 id 即 music.id，交给播放器按 id 拉详情播放
   emit('play-list', { list: songs.value, index })
 }
@@ -140,6 +166,7 @@ function onLoginClose() {
 }
 
 watch(effectiveMode, () => {
+  exitBatch()
   keyword.value = ''
   if (isCloud.value) {
     syncCloudFavorites(true)
@@ -160,6 +187,7 @@ onMounted(() => {
     loadLocal()
   }
 })
+onDeactivated(() => exitBatch())
 </script>
 
 <template>
@@ -179,6 +207,33 @@ onMounted(() => {
       </button>
     </div>
 
+    <!-- 批量下载 -->
+    <div class="batch-bar card">
+      <template v-if="!batchSelecting">
+        <button class="tool-btn" :disabled="!songs.length || batchDownloading" @click="enterBatch">
+          <Icon name="check" :size="14" />
+          批量下载
+        </button>
+        <span class="muted batch-tip">可选歌曲后批量下载，每首间隔 0.3 秒</span>
+      </template>
+      <template v-else>
+        <div class="batch-actions">
+          <button class="tool-btn" :disabled="batchDownloading" @click="selectAllBatch">全选</button>
+          <button class="tool-btn" :disabled="batchDownloading" @click="invertBatch">反选</button>
+          <button class="tool-btn primary" :disabled="!batchCount || batchDownloading" @click="startBatch">
+            <Icon name="download" :size="14" />
+            下载
+          </button>
+          <button class="tool-btn" :disabled="batchDownloading" @click="exitBatch">取消</button>
+        </div>
+        <div class="batch-status">
+          <span class="batch-count">已选 {{ batchCount }} 首</span>
+          <span v-if="batchDownloading" class="muted batch-progress">{{ batchProgress }}</span>
+          <span v-else class="muted batch-tip">点击歌曲切换选中状态</span>
+        </div>
+      </template>
+    </div>
+
     <!-- 云端：搜索 + 刷新 -->
     <div v-if="isCloud" class="tools">
       <input
@@ -186,7 +241,7 @@ onMounted(() => {
         class="search-input"
         type="search"
         placeholder="搜索云端收藏的歌曲 / 歌手"
-        @keyup.enter="search"
+        @search="onInputSearch"
       />
       <button class="tool-btn" @click="search">搜索</button>
       <button class="tool-btn" :disabled="busy" @click="refresh">刷新</button>
@@ -226,7 +281,10 @@ onMounted(() => {
       <SongList
         :songs="songs"
         :active-id="player.song?.musicId || player.song?.id"
+        :select-mode="batchSelecting"
+        :selected-ids="batchSelectedIds"
         @play="onPlay"
+        @toggle-select="toggleBatch"
       >
         <template #trailing="{ id }">
           <button
@@ -242,11 +300,11 @@ onMounted(() => {
 
       <!-- 云端分页 -->
       <div v-if="isCloud && cloudList.lastPage > 1" class="pager">
-        <button class="tool-btn" :disabled="cloudList.page <= 1" @click="goPage(cloudList.page - 1)">
+        <button class="tool-btn" :disabled="cloudList.page <= 1 || batchDownloading" @click="goPage(cloudList.page - 1)">
           上一页
         </button>
         <span class="muted">{{ cloudList.page }} / {{ cloudList.lastPage }} 页</span>
-        <button class="tool-btn" :disabled="cloudList.page >= cloudList.lastPage" @click="goPage(cloudList.page + 1)">
+        <button class="tool-btn" :disabled="cloudList.page >= cloudList.lastPage || batchDownloading" @click="goPage(cloudList.page + 1)">
           下一页
         </button>
       </div>
@@ -302,7 +360,7 @@ onMounted(() => {
   align-items: center;
   gap: 5px;
   padding: 5px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-2);
   color: var(--text-2);
   font-size: 12px;
@@ -329,12 +387,16 @@ onMounted(() => {
   height: 32px;
   padding: 0 12px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface-2);
   color: var(--text-2);
   font-size: 13px;
   cursor: pointer;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
 }
 .mode-switch {
   display: inline-flex;
@@ -352,6 +414,77 @@ onMounted(() => {
 .tool-btn:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+.tool-btn.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.batch-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 10px 12px;
+}
+
+.batch-actions,
+.batch-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.batch-actions {
+  flex: 0 0 auto;
+}
+
+.batch-status {
+  flex: 1 1 220px;
+  min-width: 0;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.batch-tip,
+.batch-progress {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.batch-count {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+@media (max-width: 640px) {
+  .batch-bar {
+    gap: 6px;
+    padding: 8px 10px;
+  }
+  .batch-bar .tool-btn {
+    height: 30px;
+    padding: 0 9px;
+    font-size: 12px;
+  }
+  .batch-actions,
+  .batch-status {
+    flex: 1 1 100%;
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+  }
+  .batch-tip,
+  .batch-progress {
+    flex: 1 1 100%;
+  }
 }
 
 /* 窄屏把说明文字放到第二行，避免被压成省略号 */
@@ -381,7 +514,7 @@ onMounted(() => {
   height: 34px;
   padding: 0 12px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface-2);
   color: var(--text);
   font-size: 14px;
@@ -401,7 +534,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-3);
   cursor: pointer;

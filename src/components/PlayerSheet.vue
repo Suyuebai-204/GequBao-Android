@@ -297,16 +297,18 @@ function onVolumeInput(e) {
   setVolume(e.target.value)
 }
 
-function scrollLyricToActive() {
+function scrollLyricToActive(immediate = false) {
   const box = lyricBox.value
   const index = activeLyricIndex.value
   if (!box || index < 0) return
   const line = box.children?.[index]
   if (!line) return
-  box.scrollTo({
-    top: Math.max(0, line.offsetTop - box.clientHeight / 2 + line.offsetHeight / 2),
-    behavior: 'smooth'
-  })
+  const top = Math.max(0, line.offsetTop - box.clientHeight / 2 + line.offsetHeight / 2)
+  if (immediate) {
+    box.scrollTop = top
+    return
+  }
+  box.scrollTo({ top, behavior: 'smooth' })
 }
 
 // 打开播放列表时，把当前曲目滚动到可视区中央
@@ -319,17 +321,24 @@ watch(showPlaylist, async (on) => {
   list.scrollTop = Math.max(0, active.offsetTop - list.clientHeight / 2 + active.offsetHeight / 2)
 })
 
+// 从唱片 / 两行预览 / 底部歌词按钮切到完整歌词时，立即按当前播放进度定位
+watch(showLyric, async (on) => {
+  if (!on || !player.open) return
+  await nextTick()
+  scrollLyricToActive(true)
+})
+
 watch(activeLyricIndex, async (index) => {
   if (!player.open || !lyricShown.value || index < 0) return
   await nextTick()
   scrollLyricToActive()
 })
 
-// 进入横屏（歌词常驻）时把当前行滚动到可视区中央
+// 进入横屏（歌词常驻）时把当前行立即滚动到可视区中央
 watch(landscape, async (on) => {
   if (!on || !player.open) return
   await nextTick()
-  scrollLyricToActive()
+  scrollLyricToActive(true)
 })
 
 // 返回键（含 Escape）统一由 App.vue 的 handleBack 处理，
@@ -371,17 +380,14 @@ onBeforeUnmount(() => {
       <button class="icon-btn" title="收起播放页" @click="close">
         <Icon name="down" :size="20" />
       </button>
-
-      <div class="drag" title="按住向下拖动可收起" @mousedown="onHandleDown" @touchstart="onTouchStart" @touchmove="onTouchMove"
-        @touchend="onTouchEnd">
-        <span class="grip"></span>
-      </div>
-
-
       <button class="icon-btn" :class="{ active: feedbackOpen }" :disabled="!player.song?.id" title="歌曲反馈"
         @click="openFeedback">
         <Icon name="feedback" :size="18" />
       </button>
+      <div class="drag" title="按住向下拖动可收起" @mousedown="onHandleDown" @touchstart="onTouchStart" @touchmove="onTouchMove"
+        @touchend="onTouchEnd">
+        <span class="grip"></span>
+      </div>
 
       <button class="icon-btn" :disabled="!canMore" title="更多操作" aria-label="更多操作" @click="openMore">
         <Icon name="more" :size="20" />
@@ -396,8 +402,8 @@ onBeforeUnmount(() => {
     <div class="stage">
       <!-- 黑胶唱片 + 歌曲信息 -->
       <div class="visual" :class="{ hidden: lyricShown }" @contextmenu="onSongContextMenu"
-        @touchstart.passive="onSongTouchStart" @touchmove.passive="onSongTouchMove"
-        @touchend="clearPressTimer" @touchcancel="clearPressTimer">
+        @touchstart.passive="onSongTouchStart" @touchmove.passive="onSongTouchMove" @touchend="clearPressTimer"
+        @touchcancel="clearPressTimer">
         <div class="disc" :class="{ spinning: player.playing }" @click="toggleLyric">
           <img v-if="cover" class="disc-cover" :src="cover" alt="封面" />
           <div v-else class="disc-cover empty">
@@ -423,8 +429,8 @@ onBeforeUnmount(() => {
 
       <!-- 歌词 -->
       <div ref="lyricBox" class="lyrics" :class="{ visible: lyricShown }" @contextmenu="onSongContextMenu"
-        @touchstart.passive="onSongTouchStart" @touchmove.passive="onSongTouchMove"
-        @touchend="clearPressTimer" @touchcancel="clearPressTimer">
+        @touchstart.passive="onSongTouchStart" @touchmove.passive="onSongTouchMove" @touchend="clearPressTimer"
+        @touchcancel="clearPressTimer">
         <p v-if="!lrc.length" class="lyric-empty">
           {{ player.loading ? '正在加载歌词…' : '暂无歌词' }}
         </p>
@@ -645,22 +651,22 @@ onBeforeUnmount(() => {
   min-height: 48px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 12px;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
   padding-top: env(safe-area-inset-top, 0px);
   z-index: 2;
 }
 
 .icon-btn {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: transparent;
-  color: var(--text-2);
+  color: var(--icon);
   cursor: pointer;
   transition: background var(--t), color var(--t);
 }
@@ -744,12 +750,12 @@ onBeforeUnmount(() => {
   position: relative;
   width: min(66vw, 280px);
   aspect-ratio: 1;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: radial-gradient(circle at 50% 50%, #2c2c31 0 30%, #151517 31% 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  box-shadow: var(--shadow-1);
   animation: disc-spin 24s linear infinite;
   animation-play-state: paused;
   cursor: pointer;
@@ -762,10 +768,10 @@ onBeforeUnmount(() => {
 .disc-cover {
   width: 60%;
   aspect-ratio: 1;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   object-fit: cover;
   background: var(--surface-2);
-  box-shadow: 0 0 0 5px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 var(--space-1) var(--surface);
 }
 
 .disc-cover.empty {
@@ -773,16 +779,16 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   color: var(--text-3);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface-2);
 }
 
 .disc-hole {
   position: absolute;
   width: 11%;
   aspect-ratio: 1;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--bg);
-  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 0 0 2px var(--border);
 }
 
 .meta {
@@ -791,36 +797,37 @@ onBeforeUnmount(() => {
 }
 
 .title {
-  font-size: 20px;
+  font-size: var(--fs-h2);
   font-weight: 600;
+  color: var(--text);
   max-width: 80vw;
   margin: 0 auto;
 }
 
 .artist {
-  margin-top: 6px;
-  font-size: 13px;
+  margin-top: var(--space-2);
+  font-size: var(--fs-body);
   color: var(--text-3);
 }
 
 .lyric-preview {
   text-align: center;
   max-width: 86vw;
-  margin-top: 2px;
+  margin-top: var(--space-1);
   cursor: pointer;
 }
 
 .lp-cur {
   margin: 0;
-  font-size: 20px;
-  line-height: 1.45;
+  font-size: var(--fs-h2);
+  line-height: var(--lh-body);
   color: var(--accent);
 }
 
 .lp-next {
-  margin: 4px 0 0;
-  font-size: 16px;
-  line-height: 1.4;
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-title);
+  line-height: var(--lh-body);
   color: var(--text-2);
 }
 
@@ -1012,10 +1019,10 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   color: var(--on-accent);
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow: var(--shadow-2);
   cursor: pointer;
   transition: background var(--t), transform var(--t);
 }
@@ -1093,23 +1100,19 @@ onBeforeUnmount(() => {
   bottom: calc(var(--mini-bottom, 72px) + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
   z-index: 40;
-  width: min(720px, calc(100% - 28px));
+  width: min(720px, calc(100% - var(--space-8)));
   height: 60px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 12px 0 8px;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) 0 var(--space-2);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--surface);
+  /* 轻微弱阴影：只表达悬浮层级，不厚重 */
+  box-shadow: var(--shadow-2);
   overflow: hidden;
   cursor: pointer;
-  transition: border-color var(--t), background var(--t);
-}
-
-.mini:hover {
-  border-color: var(--text-3);
-  background: var(--surface-2);
 }
 
 .mini-cover {
@@ -1133,14 +1136,14 @@ onBeforeUnmount(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  line-height: 1.25;
+  gap: var(--space-1);
+  line-height: var(--lh-tight);
 }
 
 .mini-head {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   flex: 1 1 auto;
   min-width: 0;
 }
@@ -1151,7 +1154,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: var(--fs-body);
   font-weight: 600;
   color: var(--text);
 }
@@ -1159,14 +1162,14 @@ onBeforeUnmount(() => {
 .mini-artist {
   display: inline-block;
   white-space: nowrap;
-  color: gray;
-  font-size: 10px;
+  color: var(--text-3);
+  font-size: var(--fs-caption);
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .mini-lyric {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   color: var(--text-3);
 }
 
@@ -1178,9 +1181,9 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: transparent;
-  color: var(--text-2);
+  color: var(--icon);
   cursor: pointer;
   transition: background var(--t), color var(--t);
 }
@@ -1195,10 +1198,14 @@ onBeforeUnmount(() => {
 }
 
 .mini-play {
-  width: auto;
-  height: auto;
-  padding: 8px;
-  border-radius: var(--radius);
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   color: var(--on-accent);
 }
@@ -1436,7 +1443,7 @@ onBeforeUnmount(() => {
 
 .pl-count {
   padding: 0 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-2);
   color: var(--text-3);
   font-size: 11px;
@@ -1491,7 +1498,7 @@ onBeforeUnmount(() => {
   transition: background var(--t), color var(--t);
 }
 
-.pl-item + .pl-item {
+.pl-item+.pl-item {
   margin-top: 2px;
 }
 
@@ -1540,7 +1547,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface-2);
   color: var(--text-3);
 }

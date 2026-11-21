@@ -217,7 +217,7 @@ onMounted(async () => {
             <div class="row" style="gap: 4px;">
               <span>桌面歌词</span>
               <div style="
-  border-radius: 5px;
+  border-radius: var(--space-1);
   background: rgba(128,128,128,0.25);
   color: var(--text-2);
   font-size: 11px;
@@ -369,7 +369,7 @@ onMounted(async () => {
   cursor: pointer;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   transition: background var(--t), border-color var(--t);
 }
 

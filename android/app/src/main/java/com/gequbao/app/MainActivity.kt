@@ -12,6 +12,17 @@ class MainActivity : BridgeActivity() {
         registerPlugin(BaiduStatPlugin::class.java)
         super.onCreate(savedInstanceState)
 
+        // 尽早把系统级 TV 判定注入 WebView；JS 侧还会通过 Gequbao.isTv() 再确认一次，
+        // 避免注入时机晚于页面脚本时漏判。
+        try {
+            val tv = GequbaoPlugin.isTvDevice(this)
+            bridge.webView.evaluateJavascript(
+                "window.__GQB_TV_NATIVE__=$tv;window.isTV=$tv;",
+                null
+            )
+        } catch (_: Exception) {
+        }
+
         // 允许混合内容（http 封面/直链在 https 容器内可正常加载，避免软件内封面不显示）
         try {
             bridge.webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
