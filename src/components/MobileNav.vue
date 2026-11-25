@@ -51,10 +51,9 @@ function go(key) {
   justify-content: space-around;
   padding: var(--space-2) var(--space-3) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
   background: var(--surface);
-  border-top: 1px solid var(--border);
-  /* 顶部圆角与页面卡片呼应，弱阴影表达浮起层级 */
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-  box-shadow: var(--shadow-2);
+  /* 无圆角、无边框、无阴影，与迷你播放条拼接为同一平面块 */
+  border-top: 0;
+  box-shadow: none;
   --nav-h: 58px;
   height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
 }

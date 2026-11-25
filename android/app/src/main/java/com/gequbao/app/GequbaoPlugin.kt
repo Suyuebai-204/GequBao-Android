@@ -23,8 +23,12 @@ import android.view.View
 import android.view.WindowInsetsController
 import android.view.WindowManager
 import java.io.BufferedReader
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
+import java.util.zip.GZIPInputStream
+import java.util.zip.InflaterInputStream
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
@@ -110,8 +114,8 @@ class GequbaoPlugin : Plugin() {
                         if (k.equals("cookie", true) || k.equals("accept-encoding", true)) continue
                         conn.setRequestProperty(k, headersObj.getString(k))
                     }
-                    // 原生侧不做 gzip/br 解压，强制明文，避免返回乱码
-                    conn.setRequestProperty("Accept-Encoding", "identity")
+                    // 允许服务端压缩（HTML/JSON 通常可缩小 60%~80%），读取时按 Content-Encoding 解压
+                    conn.setRequestProperty("Accept-Encoding", "gzip, deflate")
                     val ck = cookieString()
                     if (ck.isNotEmpty()) conn.setRequestProperty("Cookie", ck)
 
@@ -141,19 +145,41 @@ class GequbaoPlugin : Plugin() {
                     }
 
                     val rawStream = if (status < 400) conn.inputStream else conn.errorStream
+                    val encoding = conn.getHeaderField("Content-Encoding")?.lowercase()?.trim().orEmpty()
+                    val bodyStream: InputStream? = when {
+                        rawStream == null -> null
+                        encoding == "gzip" -> GZIPInputStream(rawStream)
+                        encoding == "deflate" -> InflaterInputStream(rawStream)
+                        else -> rawStream
+                    }
                     bytes = try {
-                        rawStream?.readBytes() ?: ByteArray(0)
+                        if (bodyStream == null) ByteArray(0) else {
+                            val hinted = conn.getHeaderField("Content-Length")?.toIntOrNull() ?: 0
+                            val initial = if (hinted in 1..(8 * 1024 * 1024)) hinted else 8192
+                            val out = ByteArrayOutputStream(initial)
+                            val buf = ByteArray(16 * 1024)
+                            while (true) {
+                                val n = bodyStream.read(buf)
+                                if (n < 0) break
+                                out.write(buf, 0, n)
+                            }
+                            out.toByteArray()
+                        }
                     } catch (_: Exception) {
                         ByteArray(0)
                     }
-                    try { rawStream?.close() } catch (_: Exception) { }
+                    try { bodyStream?.close() } catch (_: Exception) { }
+                    if (bodyStream !== rawStream) try { rawStream?.close() } catch (_: Exception) { }
                     conn.disconnect()
                     break
                 }
 
                 val headerJSON = JSObject()
                 respHeaders.forEach { (name, values) ->
-                    if (!name.isNullOrBlank()) headerJSON.put(name, values.joinToString(","))
+                    if (name.isNullOrBlank()) return@forEach
+                    // 返回给 JS 的已是解压后的字节，原压缩长度/编码头会误导上层
+                    if (name.equals("Content-Encoding", true) || name.equals("Content-Length", true)) return@forEach
+                    headerJSON.put(name, values.joinToString(","))
                 }
 
                 val result = JSObject()
@@ -167,6 +193,111 @@ class GequbaoPlugin : Plugin() {
                 runOnMain { call.resolve(result) }
             } catch (e: Exception) {
                 runOnMain { call.reject("http error: ${e.message}") }
+            }
+        }.start()
+    }
+
+    /**
+     * 直链 → Downloads 流式落盘。
+     * 原来的链路是 nativeHttp(base64) → JS 解码 → Blob → base64 → 原生写盘，
+     * 一首 5MB 的歌会产生约 18MB 的字符串拷贝；这里直接在 Java 层边读边写。
+     */
+    @PluginMethod
+    fun downloadUrl(call: PluginCall) {
+        val url = call.getString("url")
+        val name = call.getString("name")
+        if (url.isNullOrBlank() || name.isNullOrBlank()) {
+            call.reject("missing url or name")
+            return
+        }
+        val mime = call.getString("mime", "audio/mpeg") ?: "audio/mpeg"
+        val timeout = call.getInt("timeout", 30000) ?: 30000
+        val headersObj = (try { call.getObject("headers") } catch (_: Exception) { null }) ?: JSObject()
+
+        Thread {
+            var itemUri: android.net.Uri? = null
+            var pending = false
+            try {
+                val conn = URL(url).openConnection() as HttpURLConnection
+                conn.instanceFollowRedirects = true
+                conn.connectTimeout = timeout
+                conn.readTimeout = timeout
+                conn.setRequestProperty("Accept", "*/*")
+                conn.setRequestProperty("Accept-Encoding", "identity")
+                val keys = headersObj.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    if (k.equals("accept-encoding", true)) continue
+                    conn.setRequestProperty(k, headersObj.getString(k))
+                }
+
+                val status = conn.responseCode
+                if (status >= 400) {
+                    runOnMain { call.reject("download http $status") }
+                    return@Thread
+                }
+
+                val cr = activity?.contentResolver
+                if (cr == null) {
+                    runOnMain { call.reject("no content resolver") }
+                    return@Thread
+                }
+                val collection = if (Build.VERSION.SDK_INT >= 29)
+                    MediaStore.Downloads.EXTERNAL_CONTENT_URI
+                else
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+                val values = android.content.ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+                    put(MediaStore.MediaColumns.MIME_TYPE, mime)
+                    if (Build.VERSION.SDK_INT >= 29) {
+                        put(MediaStore.MediaColumns.RELATIVE_PATH,
+                            android.os.Environment.DIRECTORY_DOWNLOADS + "/歌曲宝")
+                        put(MediaStore.MediaColumns.IS_PENDING, 1)
+                    }
+                }
+                itemUri = cr.insert(collection, values)
+                if (itemUri == null) {
+                    runOnMain { call.reject("insert failed") }
+                    return@Thread
+                }
+                pending = Build.VERSION.SDK_INT >= 29
+
+                val input = conn.inputStream
+                var total = 0L
+                val output = cr.openOutputStream(itemUri)
+                if (output == null) {
+                    runOnMain { call.reject("open output failed") }
+                    return@Thread
+                }
+                output.use { out ->
+                    val buf = ByteArray(64 * 1024)
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        out.write(buf, 0, n)
+                        total += n
+                    }
+                    out.flush()
+                }
+                input.close()
+                conn.disconnect()
+
+                if (pending) {
+                    val done = android.content.ContentValues().apply {
+                        put(MediaStore.MediaColumns.IS_PENDING, 0)
+                    }
+                    cr.update(itemUri, done, null, null)
+                }
+                val result = JSObject()
+                result.put("ok", true)
+                result.put("uri", itemUri.toString())
+                result.put("bytes", total)
+                runOnMain { call.resolve(result) }
+            } catch (e: Exception) {
+                if (itemUri != null && pending) {
+                    try { activity?.contentResolver?.delete(itemUri, null, null) } catch (_: Exception) { }
+                }
+                runOnMain { call.reject("download failed: ${e.message}") }
             }
         }.start()
     }

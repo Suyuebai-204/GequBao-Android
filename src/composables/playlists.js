@@ -2,6 +2,7 @@
 // 歌单数量通常不多，一次拉完所有分页，页面就不必再做分页控件。
 import { computed, reactive } from 'vue'
 import { fetchPlaylists } from '../services/cloudPlaylist.js'
+import { mapLimit } from '../utils/concurrency.js'
 
 const state = reactive({
   items: [],
@@ -35,28 +36,27 @@ export function refreshPlaylists(force = false) {
   state.loading = true
   state.error = ''
   pending = (async () => {
-    const all = []
-    let page = 1
-    let lastPage = 1
-    let total = 0
-    do {
-      const r = await fetchPlaylists({ page })
-      if (!r.ok) {
-        state.items = []
-        state.total = 0
-        state.needLogin = !!r.needLogin
-        state.error = r.msg || '加载歌单失败'
-        state.loaded = false
-        return state
-      }
-      all.push(...r.items)
-      total = r.total
-      lastPage = r.lastPage
-      page += 1
-    } while (page <= lastPage && page <= 10)
+    const fail = (r) => {
+      state.items = []
+      state.total = 0
+      state.needLogin = !!r.needLogin
+      state.error = r.msg || '加载歌单失败'
+      state.loaded = false
+      return state
+    }
 
-    state.items = all
-    state.total = total
+    // 先取第一页拿到总页数，后续页并行拉取（最多 4 并发），避免逐页 RTT 累加
+    const first = await fetchPlaylists({ page: 1 })
+    if (!first.ok) return fail(first)
+
+    const lastPage = Math.min(Number(first.lastPage) || 1, 10)
+    const restPages = Array.from({ length: Math.max(0, lastPage - 1) }, (_, i) => i + 2)
+    const rest = await mapLimit(restPages, 4, (page) => fetchPlaylists({ page }))
+    const bad = rest.find((r) => !r.ok)
+    if (bad) return fail(bad)
+
+    state.items = [first, ...rest].flatMap((r) => r.items)
+    state.total = Number(first.total) || state.items.length
     state.needLogin = false
     state.loaded = true
     return state

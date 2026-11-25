@@ -9,6 +9,7 @@ class MainActivity : BridgeActivity() {
         // 注册自定义原生插件（后台播放控制 + 媒体库/HTTP 代理 + 状态栏控制）
         registerPlugin(GequbaoPlugin::class.java)
         registerPlugin(MusicControlsPlugin::class.java)
+        registerPlugin(FlymeLyricPlugin::class.java)
         registerPlugin(BaiduStatPlugin::class.java)
         super.onCreate(savedInstanceState)
 
@@ -23,9 +24,13 @@ class MainActivity : BridgeActivity() {
         } catch (_: Exception) {
         }
 
-        // 允许混合内容（http 封面/直链在 https 容器内可正常加载，避免软件内封面不显示）
         try {
-            bridge.webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            val settings = bridge.webView.settings
+            // 允许混合内容（http 封面/直链在 https 容器内可正常加载，避免软件内封面不显示）
+            settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            // 遵循服务端 Cache-Control 复用图片/静态资源，避免页面重开时重复下载
+            settings.cacheMode = WebSettings.LOAD_DEFAULT
+            settings.domStorageEnabled = true
         } catch (_: Exception) {
         }
     }

@@ -4,6 +4,7 @@ import { createApi } from './api.js'
 import { initTheme } from './composables/theme.js'
 import { initPlayerSettings, initMusicControlsListeners } from './composables/player.js'
 import { initDesktopLyric } from './composables/desktopLyric.js'
+import { initFlymeLyric } from './composables/flymeLyric.js'
 import { detectTV, detectTVFromNative, initResponsive, watchTvLayout } from './mobile/tv.js'
 import './assets/main.css'
 
@@ -37,4 +38,6 @@ createApp(App).mount('#app')
     initMusicControlsListeners()
     // 桌面歌词（悬浮窗）初始化与状态恢复
     initDesktopLyric()
+    // Flyme 状态栏歌词（探测到魅族机型才生效）
+    initFlymeLyric()
   })()

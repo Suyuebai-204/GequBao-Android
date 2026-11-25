@@ -69,7 +69,9 @@ export async function suggest(keyword) {
       Referer: `${BASE}/`
     },
     body: formBody({ keyword: kw }),
-    timeout: 8000
+    timeout: 8000,
+    cacheTtl: 60_000,
+    staleTtl: 300_000
   })
 
   let json
@@ -156,7 +158,9 @@ export async function guessMusics(keyword, limit = 6) {
       Referer: `${BASE}/s/${encodeURIComponent(kw)}`
     },
     body: formBody({ keyword: kw }),
-    timeout: 8000
+    timeout: 8000,
+    cacheTtl: 120_000,
+    staleTtl: 600_000
   })
 
   let json
@@ -220,18 +224,40 @@ export async function searchSongs(keyword) {
     return { keyword: '', usedKeyword: '', notFound: false, tried: [], total: 0, list: [] }
   }
 
+  const variants = keywordVariants(kw)
   const tried = []
   let emptyPage = null
 
-  for (const candidate of keywordVariants(kw)) {
+  for (let i = 0; i < variants.length; i++) {
+    const candidate = variants[i]
     tried.push(candidate)
     const html = await fetchSearchHtml(candidate)
-    if (html === null) continue
-    const page = parseSearchHtml(html, candidate)
-    if (page.list.length) {
-      return { ...page, keyword: kw, usedKeyword: candidate, notFound: false, tried }
+    if (html !== null) {
+      const page = parseSearchHtml(html, candidate)
+      if (page.list.length) {
+        return { ...page, keyword: kw, usedKeyword: candidate, notFound: false, tried }
+      }
+      emptyPage = page
     }
-    emptyPage = page
+
+    // 首选词没有结果时，剩余变体并行探测，不再逐个等待 RTT
+    const rest = variants.slice(i + 1)
+    if (!rest.length) break
+    tried.push(...rest)
+    const pages = await Promise.all(
+      rest.map(async (v) => {
+        try {
+          const h = await fetchSearchHtml(v)
+          return h === null ? null : parseSearchHtml(h, v)
+        } catch {
+          return null
+        }
+      })
+    )
+    const hit = pages.find((p) => p && p.list.length)
+    if (hit) {
+      return { ...hit, keyword: kw, usedKeyword: hit.keyword, notFound: false, tried }
+    }
     break
   }
 
@@ -248,7 +274,9 @@ async function fetchSearchHtml(kw) {
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         Referer: `${BASE}/`
       },
-      timeout: 12000
+      timeout: 12000,
+      cacheTtl: 60_000,
+      staleTtl: 600_000
     })
     return text
   } catch (error) {
@@ -264,7 +292,9 @@ async function fetchPage(url) {
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         Referer: `${BASE}/`
       },
-      timeout: 12000
+      timeout: 12000,
+      cacheTtl: 120_000,
+      staleTtl: 600_000
     })
     return text
   } catch (error) {
@@ -543,7 +573,11 @@ export async function hotWords(limit = 20) {
       Accept: 'application/json, text/plain, */*',
       Referer: 'https://kuwo.cn/'
     },
-    timeout: 8000
+    timeout: 8000,
+    // reqId 每次随机，用固定 key 命中缓存，避免热词每次都重新请求
+    cacheKey: HOT_API,
+    cacheTtl: 300_000,
+    staleTtl: 1_800_000
   })
 
   const raw = Array.isArray(json?.data) ? json.data : Array.isArray(json) ? json : []

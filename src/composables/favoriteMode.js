@@ -10,6 +10,7 @@ import {
   addCloudFavorite,
   removeCloudFavorite
 } from '../services/cloudFavorites.js'
+import { mapLimit } from '../utils/concurrency.js'
 
 const KEY_CLOUD_IDS = 'gequbao-cloud-fav-ids' // 离线时也能判定收藏态
 const auth = useAuth()
@@ -86,23 +87,24 @@ export async function syncCloudFavorites(force = false) {
   if (syncing) return syncing
   if (!force && cloudList.loaded) return
   syncing = (async () => {
-    let page = 1
-    let lastPage = 1
-    const ids = []
-    do {
-      const r = await fetchCloudFavorites({ keyword: '', page })
-      if (!r.ok) {
-        if (r.needLogin) {
-          cloudList.needLogin = true
-          cloudList.error = r.msg
-        }
-        return
+    const failed = (r) => {
+      if (r?.needLogin) {
+        cloudList.needLogin = true
+        cloudList.error = r.msg
       }
-      ids.push(...r.songs.map((s) => s.id))
-      lastPage = r.lastPage
-      page++
-    } while (page <= lastPage && page <= 20)
-    setCloudIds(ids)
+    }
+
+    // 先拿第一页确定总页数，后续分页并行拉取（最多 5 并发）
+    const first = await fetchCloudFavorites({ keyword: '', page: 1 })
+    if (!first.ok) return failed(first)
+
+    const lastPage = Math.min(Number(first.lastPage) || 1, 20)
+    const restPages = Array.from({ length: Math.max(0, lastPage - 1) }, (_, i) => i + 2)
+    const rest = await mapLimit(restPages, 5, (page) => fetchCloudFavorites({ keyword: '', page }))
+    const bad = rest.find((r) => !r.ok)
+    if (bad) return failed(bad)
+
+    setCloudIds([first, ...rest].flatMap((r) => r.songs.map((s) => s.id)))
     cloudList.needLogin = false
   })().finally(() => {
     syncing = null

@@ -145,7 +145,6 @@ function gequbaoProxy() {
         break
       }
 
-      const buf = Buffer.from(await upstream.arrayBuffer())
       const ct = upstream.headers.get('content-type') || 'application/octet-stream'
       res.statusCode = upstream.status
       res.setHeader('content-type', ct)
@@ -172,8 +171,27 @@ function gequbaoProxy() {
         'access-control-expose-headers',
         'x-gqb-final-url,x-gqb-redirected,x-gqb-cookies'
       )
-      res.end(buf)
+      // 边收边发：不再等上游整包下载完，缩短首字节时间并降低内存占用
+      if (upstream.body) {
+        const reader = upstream.body.getReader()
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            if (!res.write(Buffer.from(value))) {
+              await new Promise((resolve) => res.once('drain', resolve))
+            }
+          }
+        } finally {
+          try { reader.releaseLock() } catch { /* ignore */ }
+        }
+      }
+      res.end()
     } catch (e) {
+      if (res.headersSent || res.writableEnded) {
+        res.end()
+        return
+      }
       res.statusCode = 502
       res.setHeader('content-type', 'application/json; charset=utf-8')
       res.end(JSON.stringify({ error: String((e && e.message) || e) }))

@@ -5,7 +5,7 @@ import { openSong, refreshPlayUrl, downloadToFile, safeFileName, getPlayUrl } fr
 import { getHistory, pushHistory, removeHistory, clearHistory } from './services/store.js'
 import { getSettings, updateSettings } from './services/settings.js'
 import { scanLibrary } from './services/library.js'
-import { saveToDownloadsNative, isNative, nativeHttp, Gequbao } from './native/bridge.js'
+import { saveToDownloadsNative, downloadUrlNative, isNative, nativeHttp, Gequbao } from './native/bridge.js'
 import { UA } from './services/http.js'
 import { withNetworkHint } from './composables/networkHint.js'
 
@@ -58,42 +58,63 @@ async function doDownload(payload, onProgress) {
   if (!url) url = payload?.url || payload?.urlA || ''
   if (!url) throw new Error('播放地址已失效，请重新播放后再下载')
 
-  let blob
+  const fileName = `${name}.mp3`
+  let blob = null
+  let savedBytes = 0
+
   if (isNative()) {
-    // 原生端直链下载也走原生 HTTP 代理，绕开 WebView 的 CORS 限制
-    const res = await nativeHttp({
-      url,
-      method: 'GET',
-      headers: { 'User-Agent': UA, Accept: '*/*', Range: 'bytes=0-' },
-      timeout: 30000
-    })
-    const bin = atob(res.bodyBase64 || '')
-    const bytes = new Uint8Array(bin.length)
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-    blob = new Blob([bytes], { type: 'audio/mpeg' })
-    onProgress?.({ percent: 100 })
-    emitDownloadProgress({ percent: 100 })
+    // 首选原生流式落盘：Java 边读边写 Downloads，不产生 base64 中间副本
+    try {
+      const res = await downloadUrlNative({
+        url,
+        name: fileName,
+        mime: 'audio/mpeg',
+        headers: { 'User-Agent': UA, Accept: '*/*' },
+        timeout: 30000
+      })
+      if (!res?.ok) throw new Error(res?.error || '保存失败')
+      savedBytes = Number(res.bytes) || 0
+      onProgress?.({ percent: 100 })
+      emitDownloadProgress({ percent: 100 })
+    } catch (e) {
+      // 旧版插件兜底：仍走原生 HTTP + base64 链路
+      const res = await nativeHttp({
+        url,
+        method: 'GET',
+        headers: { 'User-Agent': UA, Accept: '*/*', Range: 'bytes=0-' },
+        timeout: 30000
+      })
+      const bin = atob(res.bodyBase64 || '')
+      const bytes = new Uint8Array(bin.length)
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+      blob = new Blob([bytes], { type: 'audio/mpeg' })
+      savedBytes = bytes.length
+      onProgress?.({ percent: 100 })
+      emitDownloadProgress({ percent: 100 })
+    }
   } else {
     const r = await downloadToFile(url, (percent) => {
       onProgress?.({ percent })
       emitDownloadProgress({ percent })
     })
     blob = r.blob
+    savedBytes = blob.size
   }
 
-  const fileName = `${name}.mp3`
-  if (isNative()) {
-    const base64 = await blobToBase64(blob)
-    const res = await saveToDownloadsNative(fileName, base64)
-    if (!res?.ok) throw new Error(res?.error || '保存到下载目录失败')
-  } else {
-    // 浏览器：直接触发下载
-    const href = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = href
-    a.download = fileName
-    a.click()
-    setTimeout(() => URL.revokeObjectURL(href), 1000)
+  if (blob) {
+    if (isNative()) {
+      const base64 = await blobToBase64(blob)
+      const res = await saveToDownloadsNative(fileName, base64)
+      if (!res?.ok) throw new Error(res?.error || '保存到下载目录失败')
+    } else {
+      // 浏览器：直接触发下载
+      const href = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = href
+      a.download = fileName
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(href), 1000)
+    }
   }
 
   // 下载个性化：一并保存封面 / 歌词（失败不影响主流程）
@@ -101,12 +122,29 @@ async function doDownload(payload, onProgress) {
     try {
       const coverUrl = normalizeCover(payload.cover)
       if (coverUrl) {
-        const cres = await nativeHttp({ url: coverUrl, method: 'GET', headers: { 'User-Agent': UA }, timeout: 20000 })
-        if (cres?.status === 200 && cres.bodyBase64) {
-          if (isNative()) {
-            await saveToDownloadsNative(`${name}.jpg`, cres.bodyBase64, 'image/jpeg')
-          } else {
-            downloadBase64Browser(cres.bodyBase64, `${name}.jpg`, 'image/jpeg')
+        if (isNative()) {
+          try {
+            const r = await downloadUrlNative({
+              url: coverUrl,
+              name: `${name}.jpg`,
+              mime: 'image/jpeg',
+              headers: { 'User-Agent': UA },
+              timeout: 20000
+            })
+            if (!r?.ok) throw new Error(r?.error || '封面保存失败')
+          } catch (e) {
+            const cres = await nativeHttp({
+              url: coverUrl, method: 'GET', headers: { 'User-Agent': UA }, timeout: 20000
+            })
+            if (cres?.status === 200 && cres.bodyBase64) {
+              await saveToDownloadsNative(`${name}.jpg`, cres.bodyBase64, 'image/jpeg')
+            }
+          }
+        } else {
+          const cres = await fetch(coverUrl, { headers: { 'User-Agent': UA } })
+          if (cres.ok) {
+            const coverBlob = new Blob([await cres.arrayBuffer()], { type: 'image/jpeg' })
+            downloadBase64Browser(await blobToBase64(coverBlob), `${name}.jpg`, 'image/jpeg')
           }
         }
       }
@@ -127,7 +165,7 @@ async function doDownload(payload, onProgress) {
     } catch { /* 歌词下载失败忽略 */ }
   }
 
-  return { canceled: false, path: fileName, bytes: blob.size }
+  return { canceled: false, path: fileName, bytes: savedBytes }
 }
 
 /* 规范化封面地址：补全协议相对地址 */
@@ -186,6 +224,30 @@ async function openExternal(url) {
   }
 }
 
+/* ---------- 系统分享：优先 Capacitor Share，Web Share API 兜底 ---------- */
+async function shareText(text) {
+  const value = String(text || '')
+  if (!value) return { ok: false, error: '分享内容为空' }
+  try {
+    const { Share } = await import('@capacitor/share')
+    await Share.share({ text: value, dialogTitle: '分享歌曲' })
+    return { ok: true }
+  } catch (error) {
+    // 用户主动取消不算失败
+    if (error?.message && /cancel/i.test(error.message)) return { ok: true, canceled: true }
+    // Capacitor 不可用时退回浏览器原生分享
+    try {
+      if (navigator.share) {
+        await navigator.share({ text: value })
+        return { ok: true }
+      }
+    } catch (e) {
+      if (e?.name === 'AbortError') return { ok: true, canceled: true }
+    }
+    return { ok: false, error: error?.message || '分享失败' }
+  }
+}
+
 export function createApi() {
   return {
     theme: {
@@ -239,6 +301,7 @@ export function createApi() {
     },
 
     openExternal: (url) => openExternal(url),
+    share: (text) => shareText(text),
 
     // 窗口控制：移动端无需最小化/最大化/关闭
     window: {

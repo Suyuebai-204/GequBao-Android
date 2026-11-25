@@ -369,21 +369,6 @@ export async function getPlayUrl(playId, musicId = '') {
   }
 }
 
-async function isPlayable(url) {
-  try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': UA, Range: 'bytes=0-1023' },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(8000)
-    })
-    if (!res.ok) return false
-    const type = (res.headers.get('content-type') || '').toLowerCase()
-    return !type.includes('html')
-  } catch {
-    return false
-  }
-}
-
 export async function openSong(musicId) {
   const detail = await getSongDetail(musicId)
 
@@ -398,12 +383,9 @@ export async function openSong(musicId) {
     lastError = e
   }
 
-  if (url && detail.urlA) {
-    if (!(await isPlayable(url))) {
-      url = detail.urlA
-      source = 'fallback'
-    }
-  } else if (!url && detail.urlA) {
+  // 不再做 Range 预检：预检会为每首歌额外增加一次 RTT（最坏 8 秒）。
+  // 直接把 API 直链交给 <audio>；若真的不可播，播放器 error 事件会自动切到 detail.urlA。
+  if (!url && detail.urlA) {
     url = detail.urlA
     source = 'fallback'
   }

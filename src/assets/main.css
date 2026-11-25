@@ -90,8 +90,8 @@
 
   --titlebar-h: 0px;
   --nav-h: 58px;
-  /* 迷你播放条距屏幕底部的偏移：默认含底部导航高度；无底部导航（子页面/宽屏侧栏）时贴底 */
-  --mini-bottom: calc(var(--nav-h) + var(--space-4));
+  /* 迷你播放条紧贴底部导航上沿；无底部导航（子页面/宽屏侧栏）时单独覆盖 */
+  --mini-bottom: var(--nav-h);
 
   /* 播放浮层背景参数（TV/手机都可单独覆盖） */
   --sheet-backdrop-filter: blur(0px);
@@ -100,11 +100,23 @@
   --sheet-vignette: rgba(10, 10, 12, 0.9);
 }
 
-/* 无底部导航时（子页面 / 宽屏或 TV 的左侧栏），迷你播放条贴底 */
+/* 无底部导航时（子页面 / 宽屏或 TV 的左侧栏），迷你播放条贴底且恢复四角圆角 */
 html.is-subpage,
 html.is-wide,
 html.is-tv {
   --mini-bottom: 14px;
+}
+/* 独立浮卡：无底部导航时恢复居中定位、四角圆角与浮起阴影 */
+html.is-subpage .mini,
+html.is-wide .mini,
+html.is-tv .mini {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  width: min(720px, calc(100% - var(--space-8)));
+  border-radius: var(--radius-md);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-2);
 }
 
 html.theme-light {

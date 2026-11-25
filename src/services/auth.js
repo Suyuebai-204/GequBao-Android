@@ -12,6 +12,7 @@ import {
   setCookieForHost,
   getCookieString,
   clearHostCookies,
+  clearResponseCache,
   resetProxySession,
   currentRoute
 } from './http.js'
@@ -330,6 +331,7 @@ export async function logout() {
     /* 服务端登出失败时静默，仅影响远端会话残留 */
   }
   clearHostCookies(HOST)
+  clearResponseCache()
   await resetProxySession()
   state.loggedIn = false
   state.username = ''

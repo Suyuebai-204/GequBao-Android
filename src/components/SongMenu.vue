@@ -11,6 +11,8 @@ import {
   menuCopyUrl,
   menuDownload,
   menuOpenPage,
+  menuOpenShare,
+  menuDoShare,
   menuOpenPicker,
   menuRefreshPicker,
   menuPickPlaylist
@@ -65,8 +67,9 @@ async function onPlaylistCreated() {
             <span class="sm-title truncate">{{ menu.song?.title || '未知歌曲' }}</span>
             <span class="sm-artist truncate">{{ menu.song?.artist || '未知歌手' }}</span>
           </div>
-          <button class="sm-close" title="关闭" aria-label="关闭" @click="closeSongMenu">
-            <Icon name="close" :size="18" />
+          <button class="sm-close sm-share" title="分享歌曲" aria-label="分享歌曲" :disabled="menu.busy"
+            @click="menuOpenShare">
+            <Icon name="share" :size="18" />
           </button>
         </div>
 
@@ -122,6 +125,38 @@ async function onPlaylistCreated() {
           </button>
           <button class="btn btn-subtle" :disabled="menu.pickerLoading || needLogin" @click="menuRefreshPicker">
             <Icon name="refresh" :size="15" />刷新列表
+          </button>
+        </div>
+      </div>
+    </div>
+  </transition>
+
+  <!-- 二级弹窗：系统分享，可选是否在文本中携带歌曲直链 -->
+  <transition name="sm-fade">
+    <div v-if="menu.share" class="sp-mask" @click.self="menu.share = false">
+      <div class="sp-dialog sh-dialog" role="dialog" aria-modal="true" aria-label="分享歌曲">
+        <header class="sp-head">
+          <span>分享歌曲</span>
+          <button class="sm-close" title="关闭" aria-label="关闭" @click="menu.share = false">
+            <Icon name="close" :size="18" />
+          </button>
+        </header>
+        <p class="sp-sub truncate">分享「{{ menu.song?.title || '这首歌曲' }}」给好友</p>
+
+        <button class="sh-option" @click="menu.shareWithUrl = !menu.shareWithUrl">
+          <span class="sh-check" :class="{ checked: menu.shareWithUrl }">
+            <Icon v-if="menu.shareWithUrl" name="check" :size="14" />
+          </span>
+          <span class="sh-option-text">
+            <span class="sh-option-title">携带歌曲直链</span>
+            <span class="sh-option-desc">分享文本中包含当前可用的音频直链</span>
+          </span>
+        </button>
+
+        <div class="sh-actions">
+          <button class="btn btn-subtle" @click="menu.share = false">取消</button>
+          <button class="btn btn-primary" :disabled="menu.busy" @click="menuDoShare">
+            <Icon name="share" :size="15" />分享
           </button>
         </div>
       </div>
@@ -451,6 +486,73 @@ async function onPlaylistCreated() {
 .sp-actions .btn:active:not(:disabled) {
   background: var(--surface-active);
   color: var(--text);
+}
+
+/* 分享入口：主色强调，区别于普通菜单项 */
+.sm-share {
+  color: var(--accent);
+}
+.sm-share:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* 分享二级弹窗 */
+.sh-dialog {
+  max-height: none;
+}
+.sh-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  margin-top: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.sh-option:active {
+  background: var(--surface-active);
+}
+.sh-check {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--space-1);
+  color: var(--on-accent);
+}
+.sh-check.checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.sh-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.sh-option-title {
+  font-size: var(--fs-body);
+  color: var(--text);
+}
+.sh-option-desc {
+  font-size: var(--fs-caption);
+  color: var(--text-3);
+}
+.sh-actions {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border);
+}
+.sh-actions .btn {
+  flex: 1;
 }
 
 .sm-fade-enter-active,

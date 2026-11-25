@@ -432,18 +432,87 @@ async function doRequest(url, options = {}) {
   throw lastError
 }
 
+/* ============ 响应缓存 + 同请求单飞 ============
+ * 只读请求可显式传 cacheTtl（毫秒）开启缓存：
+ *   - 新鲜期直接返回，零 RTT；
+ *   - 超过 TTL 但未超 staleTtl 时先回旧数据，后台静默刷新（SWR）。
+ * 所有 GET 自动合并同一时刻的重复请求，避免多个组件同时发同样的数据包。 */
+const responseCache = new Map() // key -> { at, value }
+const inflightGet = new Map() // key -> Promise
+
+function requestKey(url, options, explicit) {
+  if (explicit) return String(explicit)
+  const method = (options.method || 'GET').toUpperCase()
+  const cookies = method === 'GET' ? cookieHeader(url) : ''
+  return `${method}|${url}|${options.body || ''}|${cookies}|${JSON.stringify(options.headers || {})}`
+}
+
+function runRequest(url, options) {
+  if (options.quiet) return doRequest(url, options)
+  beginNetwork()
+  return doRequest(url, options).finally(() => endNetwork())
+}
+
+function revalidate(url, options, key) {
+  if (inflightGet.has(key)) return
+  const task = runRequest(url, { ...options, quiet: true })
+    .then((res) => {
+      responseCache.set(key, { at: Date.now(), value: res })
+      return res
+    })
+    .catch(() => {})
+  const clear = () => {
+    if (inflightGet.get(key) === task) inflightGet.delete(key)
+  }
+  task.then(clear, clear)
+  inflightGet.set(key, task)
+}
+
 /**
  * 所有网络请求的统一出口：按并发数显示/收起一条「正在请求…」提示。
  * options.quiet 供内部探测类请求关闭提示（成功/失败仍由各操作自己的 toast 负责）。
  */
 export async function request(url, options = {}) {
-  if (options.quiet) return doRequest(url, options)
-  beginNetwork()
-  try {
-    return await doRequest(url, options)
-  } finally {
-    endNetwork()
+  const { cacheTtl = 0, staleTtl = 0, cacheKey, ...rest } = options
+  const method = (rest.method || 'GET').toUpperCase()
+  const key = requestKey(url, rest, cacheKey)
+
+  if (cacheTtl > 0) {
+    const hit = responseCache.get(key)
+    if (hit) {
+      const age = Date.now() - hit.at
+      if (age < cacheTtl) return { ...hit.value, fromCache: true }
+      if (age < (staleTtl || cacheTtl * 5)) {
+        revalidate(url, rest, key)
+        return { ...hit.value, fromCache: true, stale: true }
+      }
+    }
   }
+
+  if (method === 'GET') {
+    const running = inflightGet.get(key)
+    if (running) return running
+  }
+
+  const task = (async () => {
+    const res = await runRequest(url, rest)
+    if (cacheTtl > 0) responseCache.set(key, { at: Date.now(), value: res })
+    return res
+  })()
+
+  if (method === 'GET') {
+    inflightGet.set(key, task)
+    const clear = () => {
+      if (inflightGet.get(key) === task) inflightGet.delete(key)
+    }
+    task.then(clear, clear)
+  }
+  return task
+}
+
+/** 退出登录/切换账号时清空只读响应缓存 */
+export function clearResponseCache() {
+  responseCache.clear()
 }
 
 export async function requestJson(url, options = {}) {

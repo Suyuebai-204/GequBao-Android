@@ -115,7 +115,9 @@ async function loadNews(target = 1, append = false) {
   try {
     const { text } = await request(`${NEWS_ORIGIN}/hot-news?page=${target}`, {
       accept: 'text/html,application/xhtml+xml',
-      quiet: true
+      quiet: true,
+      cacheTtl: 120_000,
+      staleTtl: 600_000
     })
     const items = parseNews(text)
     if (!items.length) {

@@ -18,6 +18,8 @@ const state = reactive({
   pickerLoading: false,
   create: false, // 在「加入歌单」里新建歌单
   login: false, // 未登录时的登录引导
+  share: false, // 系统分享二级弹窗（可选是否携带直链）
+  shareWithUrl: true, // 分享文本是否附带歌曲直链
   adding: 0 // 正在加入的歌单 id
 })
 
@@ -54,6 +56,8 @@ export function openSongMenu(song) {
   state.picker = false
   state.create = false
   state.login = false
+  state.share = false
+  state.shareWithUrl = true
   state.busy = false
   state.adding = 0
 }
@@ -63,6 +67,7 @@ export function closeSongMenu() {
   state.picker = false
   state.create = false
   state.login = false
+  state.share = false
   state.busy = false
   state.adding = 0
   state.song = null
@@ -72,6 +77,10 @@ export function closeSongMenu() {
 export function closeSongMenuLayer() {
   if (state.login) {
     state.login = false
+    return true
+  }
+  if (state.share) {
+    state.share = false
     return true
   }
   if (state.create) {
@@ -215,6 +224,62 @@ export async function menuOpenPage() {
   } catch (error) {
     toastError(error?.message || '打开浏览器失败')
   }
+}
+
+/* ============ 系统分享 ============ */
+
+const APP_REPO = 'https://github.com/Suyuebai-204/GequBao-Android'
+
+/** 打开分享二级弹窗 */
+export function menuOpenShare() {
+  if (!state.song) return
+  state.share = true
+}
+
+/** 组装分享文本：是否携带直链由弹窗选项决定 */
+function buildShareText(withUrl, directUrl) {
+  const id = songId(state.song)
+  const lines = [
+    '【歌曲宝App】免费的开源音乐软件；',
+    '给你分享的歌曲：',
+    `歌名：${state.song?.title || '未知歌曲'}`,
+    `歌手：${state.song?.artist || '未知歌手'}`,
+    `链接：${MUSIC_PAGE}${id}`,
+    ''
+  ]
+  if (withUrl) lines.push(`歌曲直链：${directUrl || '（解析失败）'}`)
+  lines.push('', `App开源仓库/发布页：${APP_REPO}`)
+  return lines.join('\n')
+}
+
+/** 确认分享：勾选直链时先解析，再调系统分享面板 */
+export function menuDoShare() {
+  return exclusive(async () => {
+    let directUrl = ''
+    if (state.shareWithUrl) {
+      const tip = showToast('正在解析歌曲直链…', { duration: 0 })
+      try {
+        const { url } = await resolveSong()
+        directUrl = url || ''
+        if (!directUrl) throw new Error('未获取到可用直链')
+      } catch (error) {
+        dismissToast(tip)
+        toastError(error?.message || '直链解析失败')
+        return
+      }
+      dismissToast(tip)
+    }
+
+    const text = buildShareText(state.shareWithUrl, directUrl)
+    try {
+      const res = await window.api.share(text)
+      if (res && !res.ok) throw new Error(res.error || '分享失败')
+      if (!res?.canceled) showToast('已调起系统分享', { type: 'success' })
+      state.share = false
+    } catch (error) {
+      toastError(error?.message || '分享失败')
+    }
+  })
 }
 
 /* ============ 加入歌单 ============ */

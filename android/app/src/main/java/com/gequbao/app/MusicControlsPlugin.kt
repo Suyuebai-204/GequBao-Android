@@ -308,7 +308,12 @@ class MusicControlsPlugin : Plugin() {
     private fun ensureSession() {
         if (mediaSession != null) return
         mediaSession = MediaSession(context, "GequbaoMusicSession").apply {
+            // 显式声明处理媒体键，兼容老版本系统 / 车载蓝牙的按键分发
+            @Suppress("DEPRECATION")
+            setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS)
             setCallback(object : MediaSession.Callback() {
+                // 平台 MediaSession.Callback 内部已把蓝牙/耳机的 MEDIA_BUTTON KeyEvent
+                // （含 PLAY_PAUSE / HEADSETHOOK 的播放态切换）转成下面的 onPlay/onPause 回调
                 override fun onPlay() = handleAction(ACTION_PLAY)
                 override fun onPause() = handleAction(ACTION_PAUSE)
                 override fun onSkipToNext() = handleAction(ACTION_NEXT)
@@ -430,15 +435,17 @@ class MusicControlsPlugin : Plugin() {
             ACTION_PAUSE -> statePlaying = false
             ACTION_STOP -> statePlaying = false
         }
+        // 先传达用户操作意图（事件入队），再同步 MediaSession 状态与通知栏；
+        // 保证 JS 侧拿到的永远是最新播放态。
+        val data = JSObject()
+        data.put("message", event)
+        if (action == ACTION_LYRIC) data.put("enabled", !MusicControlsPlugin.desktopLyricEnabled)
+        notifyListeners("controlsNotification", data)
+
         if (action == ACTION_PLAY || action == ACTION_PAUSE || action == ACTION_STOP) {
             updatePlaybackState(statePlaying)
             postNotification()
         }
-        val data = JSObject()
-        data.put("message", event)
-        // 桌面歌词交由 JS 统一开关（含悬浮窗创建/销毁与权限校验），这里只给出目标态
-        if (action == ACTION_LYRIC) data.put("enabled", !MusicControlsPlugin.desktopLyricEnabled)
-        notifyListeners("controlsNotification", data)
     }
 
     private fun startService() {
@@ -451,9 +458,8 @@ class MusicControlsPlugin : Plugin() {
         context.stopService(Intent(context, MusicControlsService::class.java))
     }
 
-    private fun postNotification() {
-        val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        mgr.notify(NOTIF_ID, buildMusicNotification(context, MusicControlsPlugin.desktopLyricEnabled))
+    private fun postNotification(onlyTicker: Boolean = false) {
+        postMusicNotification(context, onlyTicker)
     }
 
     private fun destroySession() {
@@ -734,8 +740,15 @@ class MusicControlsPlugin : Plugin() {
     }
 }
 
-/** 构建锁屏/通知栏通知（供插件与服务共用）；lyricOn 决定桌面歌词按钮图标 */
-private fun buildMusicNotification(context: Context, lyricOn: Boolean): Notification {
+/**
+ * 构建锁屏/通知栏通知（供插件与服务共用）；lyricOn 决定桌面歌词按钮图标。
+ * onlyTicker=true 时叠加 Flyme FLAG_ONLY_UPDATE_TICKER，只刷新状态栏歌词。
+ */
+private fun buildMusicNotification(
+    context: Context,
+    lyricOn: Boolean,
+    onlyTicker: Boolean = false
+): Notification {
     val pi = { action: String ->
         val intent = Intent(action).setPackage(context.packageName)
         PendingIntent.getBroadcast(
@@ -778,7 +791,24 @@ private fun buildMusicNotification(context: Context, lyricOn: Boolean): Notifica
             .setMediaSession(MusicControlsPlugin.currentMediaSessionToken)
             .setShowActionsInCompactView(0, 1, 2)
     }
-    return builder.build()
+
+    // Flyme 状态栏歌词能力探测（非 Flyme 机型反射失败，直接跳过）
+    FlymeLyric.checkSupport(context)
+    val ticker = FlymeLyric.lyricText
+    if (ticker.isNotEmpty()) builder.setTicker(ticker)
+
+    val notification = builder.build()
+    FlymeLyric.decorate(notification, onlyTicker)
+    return notification
+}
+
+/** 复用同一条媒体通知发布更新；FlymeLyricPlugin 通过它推送状态栏歌词 */
+internal fun postMusicNotification(context: Context, onlyTicker: Boolean = false) {
+    val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    mgr.notify(
+        MusicControlsPlugin.NOTIF_ID,
+        buildMusicNotification(context, MusicControlsPlugin.desktopLyricEnabled, onlyTicker)
+    )
 }
 
 private fun getAppIcon(context: Context): Int {

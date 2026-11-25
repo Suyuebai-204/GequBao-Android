@@ -61,7 +61,8 @@ const future = ref([])
 const current = computed(() => history.value[history.value.length - 1] ?? { key: 'discover', payload: null })
 const canBack = computed(() => history.value.length > 1)
 const canForward = computed(() => future.value.length > 0)
-const hasMini = computed(() => !!player.song)
+// 迷你播放条常驻，内容区始终为其预留底部空间
+const hasMini = computed(() => true)
 const CurrentView = computed(() => views[current.value.key]?.component ?? views.discover.component)
 // 三个主要页面（底部导航）：处于这些页面时按返回不再回退，而是提示退出
 const mainPages = new Set(['hot', 'charts', 'mine'])
@@ -165,32 +166,52 @@ watch(viewKey, async () => {
    同一次物理返回在部分设备上会同时触发这两个通道，若不去重，第二次
    会看到「播放页已关闭」而直接落到弹出退出确认框的分支。 */
 let lastBackAt = 0
+// 关闭浮层（尤其播放页）后的冷却期：吞掉同一次物理返回的迟到事件。
+// Android 上一次返回常同时派发 backButton 与 Escape，两通道间隔可能超过简单去重窗口；
+// 若第二次穿透，此时播放页已关、状态回到主页，就会误弹「退出确认」。
+let layerCooldownUntil = 0
+function enterLayerCooldown() {
+  layerCooldownUntil = Date.now() + 900
+}
+// 关键：不管播放页以何种方式收起（系统返回 / 收起按钮 / MediaStop / 手势下滑），
+// 都进入冷却期。之前只在 handleBack 内调 close() 才设冷却，其他关闭路径漏掉，
+// 导致紧随其后的返回事件直接穿透到「退出确认」。
+watch(() => player.open, (isOpen, wasOpen) => {
+  if (wasOpen && !isOpen) enterLayerCooldown()
+})
+
 function handleBack() {
-  // 同一次物理按键的两个通道只消费一次，避免刚弹出的退出框被立刻关掉
   const now = Date.now()
+  // 冷却期优先判断：刚关掉播放页 / 弹窗，或关页动画尚未结束
+  if (now < layerCooldownUntil) return
+  // 同一次物理按键的两个通道只消费一次，避免刚弹出的退出框被立刻关掉
   if (now - lastBackAt < 250) return
   lastBackAt = now
 
   // 由最上层弹窗到页面依次关闭，每次返回只处理一层
-  if (closeSongMenuLayer()) return
+  if (closeSongMenuLayer()) { enterLayerCooldown(); return }
   if (exitDialogVisible.value) {
     hideExitDialog()
     return
   }
   if (sheetState.open) {
     closeSheet(null)
+    enterLayerCooldown()
     return
   }
   if (feedbackOpen.value) {
     closeFeedback()
+    enterLayerCooldown()
     return
   }
   if (searchExpanded.value) {
     collapseSearch()
+    enterLayerCooldown()
     return
   }
   if (player.open || document.documentElement.classList.contains('player-open')) {
     close()
+    enterLayerCooldown()
     return
   }
   if (!atTerminal.value) {
@@ -204,7 +225,8 @@ function handleBack() {
 function onGlobalKey(e) {
   switch (e.key) {
     case 'Escape':
-      handleBack()
+      // 长按 Escape 会连续触发 keydown，忽略 repeat 防止连关多层 / 误弹退出框
+      if (!e.repeat) handleBack()
       break
 
     // TV 遥控常用快捷键；输入框内不抢搜索键，避免打断正在输入的内容。

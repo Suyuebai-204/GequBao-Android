@@ -55,7 +55,7 @@ function closeReward() {
               <span class="app-name">{{ APP_NAME }}</span>
               <span class="app-badge">重制版</span>
             </div>
-            <span class="muted">v{{ pkg.version }} • Android & Android TV</span>
+            <span class="muted">v{{ pkg.version }} • Android</span>
           </div>
         </div>
         <p class="muted" style="font-size: 13px; line-height: 1.6">
@@ -73,9 +73,6 @@ function closeReward() {
           <div style="display: flex; flex-direction: column">
             <span>{{ DEVELOPER }}</span>
             <span class="muted">Suyuebai-wys@outlook.com</span>
-          </div>
-          <div>
-            <Icon name="share" :size="14" />
           </div>
         </div>
         <div

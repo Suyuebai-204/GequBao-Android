@@ -10,6 +10,11 @@
     <meta name="x5-fullscreen" content="true" />
     <meta name="full-screen" content="yes" />
     <link rel="icon" type="image/svg+xml" href="/vue.svg" />
+    <!-- 提前完成 DNS/TLS 握手，首个 API 请求与封面/直链可少等 1~2 个 RTT -->
+    <link rel="dns-prefetch" href="https://www.gequbao.com" />
+    <link rel="preconnect" href="https://www.gequbao.com" crossorigin />
+    <link rel="dns-prefetch" href="https://kuwo.cn" />
+    <link rel="preconnect" href="https://kuwo.cn" crossorigin />
     <title>歌曲宝重制版</title>
     <script>
       // 首屏先应用主题，避免 CSS 默认深色在 JS 初始化前闪一下（规则与 composables/theme.js 一致）

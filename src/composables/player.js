@@ -31,6 +31,7 @@ let autoOpenPlayer = false
 let audio = null
 let loadToken = 0
 let retried = false
+let fallbackUsed = false
 
 /* ============ audio 实例 ============ */
 
@@ -58,13 +59,25 @@ function ensureAudio() {
   audio.addEventListener('loadedmetadata', () => {
     if (Number.isFinite(audio.duration) && audio.duration > 0) player.duration = audio.duration
   })
+  // 以 audio 实际状态为准：暂停后立刻播放时，浏览器可能仍排着一个滞后的 pause 事件，
+  // 若不做校验会把刚切到的播放态又改回暂停（需要再点一次才能播）。
   audio.addEventListener('play', () => {
-    player.playing = true
+    if (!audio.paused) player.playing = true
   })
   audio.addEventListener('pause', () => {
-    player.playing = false
+    if (audio.paused) player.playing = false
   })
   audio.addEventListener('ended', () => {
+    // 定时「播完当前歌曲再停止」：到点后等这首歌自然结束，不再切下一首
+    if (sleepTimer.waitingFinish) {
+      const isTarget = sleepTimer.waitSong === player.song
+      cancelTimerInternal()
+      if (isTarget) {
+        pause()
+        showToast('当前歌曲已播完，已停止播放', { type: 'info', duration: 3000 })
+      }
+      return
+    }
     if (player.repeat === 'one') {
       audio.currentTime = 0
       audio.play().catch(() => {})
@@ -81,6 +94,17 @@ function ensureAudio() {
       player.error = '本地文件无法播放，可能已被移动或删除'
       player.loading = false
       player.playing = false
+      return
+    }
+    // API 直链不可播时不额外发 Range 预检，直接切到页面解析出的备用地址
+    const fallback = player.song?.urlA || ''
+    if (!fallbackUsed && fallback && fallback !== player.url) {
+      fallbackUsed = true
+      player.url = fallback
+      player.source = 'fallback'
+      audio.src = fallback
+      audio.currentTime = 0
+      audio.play().catch(() => {})
       return
     }
     if (!retried) {
@@ -193,6 +217,7 @@ export function playLocalList(list, index = 0) {
 async function loadLocal(track) {
   const token = ++loadToken
   retried = false
+  fallbackUsed = false
   resetDownload()
   player.loading = false
   player.error = ''
@@ -272,6 +297,84 @@ export function cycleRepeat() {
   setRepeat(nextMode)
 }
 
+/* ============ 定时停止播放 ============ */
+
+// mode: immediate 到点立即停止 / finish 到点后播完当前歌曲再停止
+export const sleepTimer = reactive({
+  active: false,
+  mode: 'immediate',
+  endAt: 0,
+  remainingMs: 0,
+  waitingFinish: false,
+  waitSong: null
+})
+
+let sleepTicker = null
+
+function stopSleepTicker() {
+  if (sleepTicker) {
+    clearInterval(sleepTicker)
+    sleepTicker = null
+  }
+}
+
+function cancelTimerInternal() {
+  stopSleepTicker()
+  sleepTimer.active = false
+  sleepTimer.endAt = 0
+  sleepTimer.remainingMs = 0
+  sleepTimer.waitingFinish = false
+  sleepTimer.waitSong = null
+}
+
+function tickSleepTimer() {
+  if (!sleepTimer.active) return
+  sleepTimer.remainingMs = Math.max(0, sleepTimer.endAt - Date.now())
+  if (sleepTimer.remainingMs > 0) return
+
+  if (sleepTimer.mode === 'finish') {
+    // 到点但当前歌还没播完：记住这首歌，等它自然结束后再停
+    sleepTimer.waitingFinish = true
+    sleepTimer.waitSong = player.song
+    stopSleepTicker()
+    showToast('定时时间到，将在当前歌曲结束后停止播放', { type: 'info', duration: 3000 })
+    return
+  }
+
+  const wasPlaying = player.playing
+  cancelTimerInternal()
+  if (wasPlaying) pause()
+  showToast('定时时间到，已停止播放', { type: 'info', duration: 3000 })
+}
+
+/** 设置定时停止；minutes 为分钟，mode 为 immediate 或 finish */
+export function setSleepTimer(minutes, mode = 'immediate') {
+  const min = Number(minutes)
+  if (!Number.isFinite(min) || min <= 0) return false
+  const ms = Math.min(min, 1440) * 60 * 1000
+  cancelTimerInternal()
+  sleepTimer.active = true
+  sleepTimer.mode = mode === 'finish' ? 'finish' : 'immediate'
+  sleepTimer.endAt = Date.now() + ms
+  sleepTimer.remainingMs = ms
+  sleepTicker = setInterval(tickSleepTimer, 1000)
+  showToast(`已设置 ${min} 分钟定时，到点${sleepTimer.mode === 'finish' ? '播完当前歌曲后停止' : '停止播放'}`, { type: 'success' })
+  return true
+}
+
+export function cancelSleepTimer() {
+  if (!sleepTimer.active) return
+  cancelTimerInternal()
+  showToast('已取消定时停止', { type: 'info' })
+}
+
+// 等到点歌曲结束时，若用户手动切歌则不再替新歌继续计时
+function isTimerTrack(track) {
+  const s = sleepTimer.waitSong
+  if (!s) return false
+  return s.local ? !!track.local && s.title === track.title : Number(s.id) === Number(track.musicId)
+}
+
 // 随机模式下选一个与当前不同的曲目索引
 function randomOtherIndex() {
   const n = player.queue.length
@@ -297,11 +400,13 @@ export function fullCover(url) {
 async function loadCurrent() {
   const track = player.queue[player.index]
   if (!track) return
+  if (sleepTimer.waitingFinish && !isTimerTrack(track)) cancelTimerInternal()
   if (track.local) return loadLocal(track)
   if (!track.musicId) return
 
   const token = ++loadToken
   retried = false
+  fallbackUsed = false
   resetDownload()
   if (autoOpenPlayer) player.open = true
   player.loading = true
@@ -373,6 +478,7 @@ async function refreshUrl(silent = false) {
     const keepTime = player.currentTime
     player.url = res.data.url
     player.source = res.data.source
+    fallbackUsed = false
 
     const el = ensureAudio()
     el.src = res.data.url
@@ -401,7 +507,8 @@ export function play() {
   if (!player.song) return
   player.playing = true
   el.play().catch(() => {
-    player.playing = false
+    // 只有在确实没播起来时才回退；避免滞后的 pause 事件/重复调用误伤播放态
+    if (el.paused) player.playing = false
   })
   syncPlayState(true)
 }

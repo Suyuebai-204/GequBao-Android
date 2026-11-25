@@ -47,6 +47,19 @@ export async function nativeHttp(req) {
   }
 }
 
+/* 原生直链流式下载：URL → Downloads，不经过 base64 桥接。
+ * 入参 { url, name, mime, headers, timeout }，返回 { ok, uri, bytes }。 */
+export async function downloadUrlNative(req) {
+  if (!isNative()) throw new Error('native download 仅在原生环境可用')
+  return Gequbao.downloadUrl({
+    url: req.url,
+    name: req.name,
+    mime: req.mime || 'audio/mpeg',
+    headers: req.headers || {},
+    timeout: req.timeout || 30000
+  })
+}
+
 /* 把下载结果（base64）导出到系统「下载」目录
  * 入参：{ name, dataBase64, mime } —— 原生用 MediaStore 写入 Downloads/歌曲宝；
  * mime 缺省 audio/mpeg，封面/歌词另传 image/jpeg、text/plain 等 */
@@ -68,6 +81,16 @@ export async function saveToDownloadsNative(name, dataBase64, mime = 'audio/mpeg
 
 /* 后台播放 / 锁屏控制器（MusicControls 原生插件） */
 export const MusicControls = registerPlugin('MusicControls')
+
+/* Flyme 状态栏歌词（复用 MusicControls 的同一条媒体通知；web 端空实现兜底） */
+export const FlymeLyric = registerPlugin('FlymeLyric', {
+  web: {
+    setLyric: async () => {},
+    clearLyric: async () => {},
+    isFlymeSupport: async () => ({ support: false }),
+    requestNotificationPermission: async () => {}
+  }
+})
 
 /* 百度移动统计（BaiduStat 原生插件） */
 export const BaiduStat = registerPlugin('BaiduStat')

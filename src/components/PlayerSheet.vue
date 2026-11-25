@@ -20,7 +20,10 @@ import {
   toggle,
   toggleMute,
   cycleRepeat,
-  fullCover
+  fullCover,
+  cancelSleepTimer,
+  setSleepTimer,
+  sleepTimer
 } from '../composables/player'
 import { isFavorited, toggleFavorited } from '../composables/favoriteMode.js'
 import { showToast } from '../composables/toast'
@@ -93,6 +96,52 @@ const dragging = ref(false)
 const seeking = ref(false)
 const showLyric = ref(false)
 const showPlaylist = ref(false)
+
+// 定时停止：到点立即停 / 到点后播完当前歌曲再停
+const showSleepTimer = ref(false)
+const timerMinutes = ref(30)
+const timerMode = ref('immediate')
+const timerQuickOptions = [5, 10, 15, 30, 45, 60]
+
+// 输入非快捷值时视为自定义时长，用于高亮对应选项
+const isCustomMinutes = computed(() => {
+  const v = Number(timerMinutes.value)
+  return !!v && !timerQuickOptions.includes(v)
+})
+
+const sleepRemainingText = computed(() => {
+  if (!sleepTimer.active) return ''
+  if (sleepTimer.waitingFinish) return '待播完停止'
+  return formatTime(Math.ceil(sleepTimer.remainingMs / 1000))
+})
+
+const sleepTimerTitle = computed(() => {
+  if (!sleepTimer.active) return '定时停止播放'
+  return `定时播放 · ${sleepRemainingText.value}`
+})
+
+function togglePlaylist() {
+  showSleepTimer.value = false
+  showPlaylist.value = !showPlaylist.value
+}
+
+function toggleSleepTimer() {
+  showPlaylist.value = false
+  showSleepTimer.value = !showSleepTimer.value
+}
+
+function onStartSleepTimer() {
+  const min = Number(timerMinutes.value)
+  if (!Number.isFinite(min) || min <= 0) {
+    showToast('请输入大于 0 的分钟数', { type: 'error' })
+    return
+  }
+  if (setSleepTimer(min, timerMode.value)) showSleepTimer.value = false
+}
+
+function onCancelSleepTimer() {
+  cancelSleepTimer()
+}
 
 // 横屏时歌词与封面常驻同屏显示（不依赖手动切换），用于驱动滚动 / 布局
 const landscape = ref(typeof matchMedia === 'function' ? matchMedia('(orientation: landscape)').matches : false)
@@ -389,12 +438,17 @@ onBeforeUnmount(() => {
         <span class="grip"></span>
       </div>
 
+      <button class="icon-btn" :class="{ active: sleepTimer.active }" :title="sleepTimerTitle" aria-label="定时停止播放"
+        @click="toggleSleepTimer">
+        <Icon name="timer" :size="20" />
+      </button>
+
       <button class="icon-btn" :disabled="!canMore" title="更多操作" aria-label="更多操作" @click="openMore">
         <Icon name="more" :size="20" />
       </button>
 
       <button class="icon-btn" :class="{ active: showPlaylist }" title="播放列表" aria-label="播放列表"
-        @click="showPlaylist = !showPlaylist">
+        @click="togglePlaylist">
         <Icon name="playlist" :size="20" />
       </button>
     </header>
@@ -481,11 +535,99 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </transition>
+
+      <!-- 定时停止：选择时长与到点后的行为 -->
+      <transition name="pl">
+        <div v-if="showSleepTimer" class="timer-panel">
+          <div class="pl-head timer-head">
+            <div class="pl-head-text">
+              <span class="pl-title">
+                <Icon name="timer" :size="17" />
+                定时停止
+              </span>
+            </div>
+            <button class="icon-btn" title="关闭定时设置" aria-label="关闭定时设置" @click="showSleepTimer = false">
+              <Icon name="close" :size="18" />
+            </button>
+          </div>
+
+          <div class="timer-body">
+            <!-- 已设置时置顶展示状态，取消入口就近放在状态卡里 -->
+            <div v-if="sleepTimer.active" class="timer-running">
+              <div class="tr-info">
+                <div class="tr-label">
+                  <Icon name="timer" :size="13" />
+                  {{ sleepTimer.waitingFinish ? '定时已到点' : '距离停止播放' }}
+                </div>
+                <div class="tr-time">{{ sleepRemainingText }}</div>
+              </div>
+              <div class="tr-right">
+                <span class="tr-mode">{{ sleepTimer.mode === 'finish' ? '播完当前歌曲' : '立即停止' }}</span>
+                <button class="tr-cancel" @click="onCancelSleepTimer">取消</button>
+              </div>
+            </div>
+
+            <section class="timer-section">
+              <div class="timer-section-head">
+                <span class="timer-label">定时时长</span>
+                <span class="timer-unit">分钟</span>
+              </div>
+              <div class="timer-chips">
+                <button v-for="m in timerQuickOptions" :key="m" class="timer-chip"
+                  :class="{ active: Number(timerMinutes) === m }" @click="timerMinutes = m">{{ m }}</button>
+              </div>
+              <div class="timer-custom" :class="{ active: isCustomMinutes }">
+                <span class="tc-label">
+                  <Icon name="edit" :size="14" />
+                  自定义时长(支持小数点)
+                </span>
+                <label class="tc-field">
+                  <input v-model.number="timerMinutes" type="number" min="1" max="1440" step="1" inputmode="numeric"
+                    aria-label="自定义定时分钟数" />
+                  <span class="timer-unit">分钟</span>
+                </label>
+              </div>
+            </section>
+
+            <section class="timer-section">
+              <div class="timer-section-head">
+                <span class="timer-label">到点后</span>
+              </div>
+              <div class="timer-modes">
+                <button class="timer-mode" :class="{ active: timerMode === 'immediate' }"
+                  @click="timerMode = 'immediate'">
+                  <span class="tm-radio"></span>
+                  <span class="tm-text">
+                    <span class="tm-title">立即停止播放</span>
+                    <span class="tm-desc">时间到时立刻暂停</span>
+                  </span>
+                </button>
+                <button class="timer-mode" :class="{ active: timerMode === 'finish' }" @click="timerMode = 'finish'">
+                  <span class="tm-radio"></span>
+                  <span class="tm-text">
+                    <span class="tm-title">播完当前歌曲再停止</span>
+                    <span class="tm-desc">不打断播放，本首结束后自动停止</span>
+                  </span>
+                </button>
+              </div>
+            </section>
+          </div>
+
+          <div class="timer-actions">
+            <button class="btn btn-primary timer-start" @click="onStartSleepTimer">
+              {{ sleepTimer.active ? '重新设置' : '开始定时' }}
+            </button>
+          </div>
+        </div>
+      </transition>
     </div>
 
     <!-- 列表打开时遮住外部：首次点击只关闭列表，不会透传给下方控件 -->
     <transition name="pl-fade">
       <div v-if="showPlaylist" class="pl-mask" @click="showPlaylist = false"></div>
+    </transition>
+    <transition name="pl-fade">
+      <div v-if="showSleepTimer" class="pl-mask" @click="showSleepTimer = false"></div>
     </transition>
 
     <div class="controls">
@@ -531,6 +673,10 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="status-row">
+        <span v-if="sleepTimer.active" class="timer-status" :title="sleepTimerTitle">
+          <Icon name="timer" :size="13" />
+          {{ sleepRemainingText }}
+        </span>
         <span v-if="statusText" class="status muted">{{ statusText }}</span>
         <button v-if="player.error" class="btn btn-subtle" @click="retry">重试</button>
         <button v-if="player.error && player.song?.id" class="btn btn-subtle" @click="openInBrowser">
@@ -554,20 +700,22 @@ onBeforeUnmount(() => {
   </section>
 
   <transition name="mini">
-    <div v-if="player.song && !player.open" class="mini" :title="`${player.song.title} - ${player.song.artist}`"
-      @click="open">
-      <img v-if="player.song.cover" class="mini-cover" :src="player.song.cover" alt="" />
+    <div v-if="!player.open" class="mini" :class="{ 'mini-empty': !player.song }"
+      :title="player.song ? `${player.song.title} - ${player.song.artist}` : '暂无播放'" @click="open">
+      <img v-if="player.song?.cover" class="mini-cover" :src="player.song.cover" alt="" />
       <div v-else class="mini-cover mini-cover-empty">
         <Icon name="music" :size="16" />
       </div>
 
       <div class="mini-text">
         <span class="mini-head">
-          <span class="mini-title truncate">{{ player.song.title }}</span>-
-          <span class="mini-artist truncaye">{{ player.song.artist ||
-            '未知歌手' }}</span>
+          <template v-if="player.song">
+            <span class="mini-title truncate">{{ player.song.title }}</span>-
+            <span class="mini-artist truncate">{{ player.song.artist || '未知歌手' }}</span>
+          </template>
+          <span v-else class="mini-title">暂无播放</span>
         </span>
-        <span v-if="activeLyricText" class="mini-lyric truncate">{{ activeLyricText }}</span>
+        <span v-if="player.song && activeLyricText" class="mini-lyric truncate">{{ activeLyricText }}</span>
       </div>
 
       <button class="mini-btn" title="上一曲" @click.stop="prev">
@@ -1093,26 +1241,34 @@ onBeforeUnmount(() => {
   opacity: 0.7;
 }
 
-/* ---------- 迷你播放条 ---------- */
+/* ---------- 迷你播放条：常驻，贴合底部导航 ---------- */
 .mini {
   position: fixed;
-  left: 50%;
+  left: 0;
+  right: 0;
   bottom: calc(var(--mini-bottom, 72px) + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
   z-index: 40;
-  width: min(720px, calc(100% - var(--space-8)));
   height: 60px;
   display: flex;
   align-items: center;
   gap: var(--space-2);
   padding: 0 var(--space-3) 0 var(--space-2);
+  /* 与导航贴合：左右/顶边框保留卡片轮廓，底边与导航之间无边框、无阴影 */
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-bottom: 0;
+  /* 顶部圆角、底部直角，与下方导航拼接为一块；拼接处不用阴影 */
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
   background: var(--surface);
-  /* 轻微弱阴影：只表达悬浮层级，不厚重 */
-  box-shadow: var(--shadow-2);
+  box-shadow: none;
   overflow: hidden;
   cursor: pointer;
+}
+/* 无歌曲占位态：弱化提示，不显示可点击手型 */
+.mini-empty {
+  cursor: default;
+}
+.mini-empty .mini-play {
+  opacity: 0.5;
 }
 
 .mini-cover {
@@ -1239,7 +1395,7 @@ onBeforeUnmount(() => {
 .mini-enter-from,
 .mini-leave-to {
   opacity: 0;
-  transform: translateX(-50%) translateY(16px);
+  transform: translateY(16px);
 }
 
 @keyframes disc-spin {
@@ -1599,5 +1755,309 @@ onBeforeUnmount(() => {
 .pl-leave-to {
   transform: translateY(18px);
   opacity: 0;
+}
+
+/* ---------- 定时停止面板 ---------- */
+/* inset + margin:auto 居中，内容自适应高度；不用 transform，避免与 pl 过渡冲突 */
+.timer-panel {
+  position: absolute;
+  inset: 0;
+  width: min(400px, calc(100% - 24px));
+  height: fit-content;
+  max-height: calc(100% - 24px);
+  margin: auto;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-3);
+}
+
+.timer-head {
+  padding: 12px 12px 12px 16px;
+}
+
+.timer-head .pl-title svg {
+  color: var(--accent);
+}
+
+.timer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 16px 16px;
+}
+
+.timer-running {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+}
+
+.tr-info {
+  min-width: 0;
+}
+
+.tr-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.tr-time {
+  margin-top: 2px;
+  color: var(--accent);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.tr-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.tr-mode {
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.tr-cancel {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tr-cancel:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.timer-section + .timer-section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.timer-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.timer-label {
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.timer-unit {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.timer-chips {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.timer-chip {
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.timer-chip.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.timer-custom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 7px 10px 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  transition: border-color var(--t), background var(--t);
+}
+
+.timer-custom.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.tc-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-3);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.timer-custom.active .tc-label {
+  color: var(--accent);
+}
+
+.tc-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tc-field input {
+  width: 72px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.tc-field input::-webkit-inner-spin-button,
+.tc-field input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.tc-field input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.timer-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timer-mode {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 58px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--t), background var(--t);
+}
+
+.timer-mode:hover {
+  border-color: var(--border-strong);
+}
+
+.tm-radio {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border: 2px solid var(--border-strong);
+  border-radius: 50%;
+}
+
+.tm-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tm-title {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.tm-desc {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.timer-mode.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.timer-mode.active .tm-radio {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: inset 0 0 0 3px var(--surface);
+}
+
+.timer-mode.active .tm-title {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.timer-actions {
+  display: flex;
+  flex-shrink: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.timer-start {
+  flex: 1;
+  height: 40px;
+  font-weight: 600;
+}
+
+.timer-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  color: var(--accent);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 </style>
